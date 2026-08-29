@@ -8,7 +8,7 @@ let savers: [(name: String, make: (NSRect) -> ScreenSaverView)] = [
     ("Flying Flasks", { FlyingFlasksView(frame: $0, isPreview: false)! }),
     ("Glassware Pipes", { GlasswarePipesView(frame: $0, isPreview: false)! }),
     ("Lattice Maze", { LatticeMazeView(frame: $0, isPreview: false)! }),
-    ("Mystify Polymers", { MystifyPolymersView(frame: $0, isPreview: false)! }),
+    ("Mystify Origami", { MystifyPolymersView(frame: $0, isPreview: false)! }),
     ("Stoddart Reef", { StoddartReefView(frame: $0, isPreview: false)! }),
 ]
 

@@ -7,7 +7,9 @@ import ScreenSaver
 
 private func rnd(_ r: ClosedRange<CGFloat>) -> CGFloat { CGFloat.random(in: r) }
 
-private enum SwimmerKind: CaseIterable { case rotaxane, catenane, borromean, jellyfish }
+private enum SwimmerKind: CaseIterable {
+    case rotaxane, catenane, borromean, jellyfish, trefoil, daisyChain, cucurbituril
+}
 
 private struct Swimmer {
     var kind: SwimmerKind
@@ -61,8 +63,9 @@ public final class StoddartReefView: ScreenSaverView {
 
     private func setup() {
         let w = max(bounds.width, 800), h = max(bounds.height, 500)
-        var kinds: [SwimmerKind] = [.rotaxane, .rotaxane, .catenane, .borromean, .jellyfish]
-        if !isPreview { kinds += [.rotaxane, .catenane, .jellyfish] }
+        var kinds: [SwimmerKind] = [.rotaxane, .rotaxane, .catenane, .borromean,
+                                    .jellyfish, .trefoil, .daisyChain, .cucurbituril]
+        if !isPreview { kinds += [.rotaxane, .jellyfish, .daisyChain, .cucurbituril] }
         swimmers = kinds.map { kind in
             Swimmer(kind: kind,
                     x: rnd(0...w),
@@ -290,6 +293,9 @@ public final class StoddartReefView: ScreenSaverView {
         case .catenane: drawCatenane(ctx, s)
         case .borromean: drawBorromean(ctx, s)
         case .jellyfish: drawJellyfish(ctx, s)
+        case .trefoil: drawTrefoil(ctx, s)
+        case .daisyChain: drawDaisyChain(ctx, s)
+        case .cucurbituril: drawCucurbituril(ctx, s)
         }
         ctx.restoreGState()
     }
@@ -448,6 +454,121 @@ public final class StoddartReefView: ScreenSaverView {
         ctx.fillEllipse(in: CGRect(x: -7, y: -7, width: 14, height: 14))
         drawTinyLabel(ctx, "K\u{207A}", at: .zero, size: 8,
                       color: NSColor(calibratedWhite: 1, alpha: 0.95), halo: false)
+    }
+
+    /// Molecular trefoil knot: the strand weaves over and under itself, drawn
+    /// with depth-sorted segments so the crossings come out right, tumbling
+    /// slowly as it drifts.
+    private func drawTrefoil(_ ctx: CGContext, _ s: Swimmer) {
+        ctx.saveGState()
+        ctx.rotate(by: s.phase * 0.35)
+        let R: CGFloat = 12.5
+        let n = 72
+        var pts: [(p: CGPoint, z: CGFloat)] = []
+        for i in 0...n {
+            let a = CGFloat(i) / CGFloat(n) * 2 * .pi
+            pts.append((CGPoint(x: (sin(a) + 2 * sin(2 * a)) * R,
+                                y: (cos(a) - 2 * cos(2 * a)) * R),
+                        sin(3 * a)))
+        }
+        var order = Array(0..<n)
+        order.sort { pts[$0].z + pts[$0 + 1].z < pts[$1].z + pts[$1 + 1].z }
+        let shadow = CGColor(red: 0.01, green: 0.07, blue: 0.13, alpha: 1)
+        for i in order {
+            let depth = (pts[i].z + pts[i + 1].z) / 2
+            let bright = 0.6 + 0.4 * (depth + 1) / 2
+            ctx.setStrokeColor(shadow)
+            ctx.setLineWidth(8.5)
+            ctx.setLineCap(.round)
+            ctx.move(to: pts[i].p); ctx.addLine(to: pts[i + 1].p); ctx.strokePath()
+            ctx.setStrokeColor(CGColor(red: 0.95 * bright, green: 0.78 * bright,
+                                       blue: 0.28 * bright, alpha: 1))
+            ctx.setLineWidth(5)
+            ctx.move(to: pts[i].p); ctx.addLine(to: pts[i + 1].p); ctx.strokePath()
+        }
+        ctx.restoreGState()
+    }
+
+    /// [c2]Daisy-chain eel: threaded ring-and-rod units undulating along.
+    private func drawDaisyChain(_ ctx: CGContext, _ s: Swimmer) {
+        ctx.saveGState()
+        ctx.scaleBy(x: s.dir, y: 1)
+        let units = 4
+        let spacing: CGFloat = 36
+        func unitCenter(_ u: Int) -> CGPoint {
+            CGPoint(x: CGFloat(u) * spacing - spacing * CGFloat(units - 1) / 2,
+                    y: sin(s.phase * 1.6 + CGFloat(u) * 0.95) * 9)
+        }
+        // Rods first, threading unit to unit, with end stoppers
+        ctx.setStrokeColor(CGColor(red: 0.8, green: 0.84, blue: 0.9, alpha: 0.95))
+        ctx.setLineWidth(3)
+        ctx.setLineCap(.round)
+        let head = unitCenter(0), tail = unitCenter(units - 1)
+        ctx.move(to: CGPoint(x: head.x - 20, y: head.y))
+        ctx.addLine(to: head)
+        ctx.strokePath()
+        for u in 0..<(units - 1) {
+            ctx.move(to: unitCenter(u)); ctx.addLine(to: unitCenter(u + 1))
+            ctx.strokePath()
+        }
+        ctx.move(to: tail)
+        ctx.addLine(to: CGPoint(x: tail.x + 20, y: tail.y))
+        ctx.strokePath()
+        let gray = CGColor(red: 0.62, green: 0.66, blue: 0.74, alpha: 1)
+        ctx.setFillColor(gray)
+        ctx.fillEllipse(in: CGRect(x: head.x - 27, y: head.y - 7, width: 14, height: 14))
+        ctx.fillEllipse(in: CGRect(x: tail.x + 13, y: tail.y - 7, width: 14, height: 14))
+        // Rings over the rods: threaded
+        for u in 0..<units {
+            let c = unitCenter(u)
+            ctx.setStrokeColor(u % 2 == 0 ? boxBlue : crownRed)
+            ctx.setLineWidth(4.5)
+            if u % 2 == 0 {
+                ctx.stroke(CGRect(x: c.x - 9, y: c.y - 12, width: 18, height: 24)
+                    .insetBy(dx: 2.25, dy: 2.25))
+            } else {
+                ctx.strokeEllipse(in: CGRect(x: c.x - 11, y: c.y - 13, width: 22, height: 26))
+            }
+        }
+        ctx.restoreGState()
+    }
+
+    /// Cucurbituril: the pumpkin-shaped barrel, carbonyl-lined portals top and
+    /// bottom, with a shy guest inside.
+    private func drawCucurbituril(_ ctx: CGContext, _ s: Swimmer) {
+        let teal = CGColor(red: 0.35, green: 0.62, blue: 0.62, alpha: 1)
+        // Barrel body: bulging staves
+        ctx.setFillColor(CGColor(red: 0.10, green: 0.24, blue: 0.27, alpha: 0.92))
+        let body = CGMutablePath()
+        body.move(to: CGPoint(x: -13, y: 16))
+        body.addQuadCurve(to: CGPoint(x: -13, y: -16), control: CGPoint(x: -24, y: 0))
+        body.addLine(to: CGPoint(x: 13, y: -16))
+        body.addQuadCurve(to: CGPoint(x: 13, y: 16), control: CGPoint(x: 24, y: 0))
+        body.closeSubpath()
+        ctx.addPath(body)
+        ctx.fillPath()
+        // The guest, peeking out of the cavity
+        ctx.setFillColor(CGColor(red: 0.6, green: 0.64, blue: 0.7, alpha: 1))
+        ctx.fillEllipse(in: CGRect(x: -6, y: 4 + sin(s.phase * 2) * 4, width: 12, height: 12))
+        // Glycoluril staves
+        ctx.setStrokeColor(teal)
+        ctx.setLineWidth(2)
+        for sx: CGFloat in [-14, -5, 5, 14] {
+            ctx.move(to: CGPoint(x: sx * 0.8, y: 15))
+            ctx.addQuadCurve(to: CGPoint(x: sx * 0.8, y: -15),
+                             control: CGPoint(x: sx * 1.45, y: 0))
+            ctx.strokePath()
+        }
+        ctx.addPath(body)
+        ctx.setLineWidth(2.6)
+        ctx.strokePath()
+        // Carbonyl portals: red oxygens rimming both openings
+        ctx.setFillColor(CGColor(red: 0.95, green: 0.4, blue: 0.32, alpha: 1))
+        for dy: CGFloat in [16, -16] {
+            for sx: CGFloat in [-11, -4.5, 2, 8.5] {
+                ctx.fillEllipse(in: CGRect(x: sx, y: dy - 2.4, width: 4.8, height: 4.8))
+            }
+        }
     }
 
     public override var hasConfigureSheet: Bool { false }

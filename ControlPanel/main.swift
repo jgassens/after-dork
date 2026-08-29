@@ -427,14 +427,98 @@ moduleList.onSelect = { i in
 // Bottom bar
 let setButton = RetroButton(frame: NSRect(x: winW - 178, y: 508, width: 164, height: 26),
                             title: "Set Screen Saver")
+let demoButton = RetroButton(frame: NSRect(x: winW - 330, y: 508, width: 68, height: 26),
+                             title: "Demo")
 let quitButton = RetroButton(frame: NSRect(x: winW - 254, y: 508, width: 68, height: 26),
                              title: "Quit")
-statusLabel.frame = NSRect(x: 14, y: 512, width: 440, height: 18)
+statusLabel.frame = NSRect(x: 14, y: 512, width: 360, height: 18)
 root.addSubview(setButton)
+root.addSubview(demoButton)
 root.addSubview(quitButton)
 root.addSubview(statusLabel)
 
 quitButton.action = { app.terminate(nil) }
+
+/// Tahoe's idle activation ignores the legacy moduleDict and reads the
+/// Wallpaper store instead, so "Set Screen Saver" must rewrite the store's
+/// Idle entries to a screen-saver provider pointing at our module. The
+/// agents get SIGKILL first so they cannot flush stale state back over the
+/// edit; launchd respawns them and they read the fresh file.
+func setWallpaperStoreIdle(moduleURL: URL) {
+    let storePath = NSHomeDirectory()
+        + "/Library/Application Support/com.apple.wallpaper/Store/Index.plist"
+    let kill = Process()
+    kill.executableURL = URL(fileURLWithPath: "/bin/zsh")
+    kill.arguments = ["-c",
+        "pkill -9 WallpaperAgent 2>/dev/null; pkill -9 legacyScreenSaver 2>/dev/null; true"]
+    try? kill.run()
+    kill.waitUntilExit()
+
+    guard let cfg = try? PropertyListSerialization.data(
+        fromPropertyList: ["module": ["relative": moduleURL.absoluteString]],
+        format: .binary, options: 0),
+        let idleOpts = try? PropertyListSerialization.data(
+            fromPropertyList: ["values": [String: Any]()],
+            format: .binary, options: 0) else { return }
+    let idleChoice: [String: Any] = [
+        "Configuration": cfg, "Files": [Any](),
+        "Provider": "com.apple.wallpaper.choice.screen-saver",
+    ]
+    let now = Date()
+
+    var root: [String: Any]
+    if let data = FileManager.default.contents(atPath: storePath),
+       let parsed = (try? PropertyListSerialization.propertyList(
+           from: data, options: [], format: nil)) as? [String: Any] {
+        root = parsed
+    } else {
+        root = ["AllSpacesAndDisplays": [String: Any](),
+                "Displays": [String: Any](), "Spaces": [String: Any](),
+                "SystemDefault": [String: Any]()]
+    }
+
+    func patched(_ scopeIn: [String: Any]) -> [String: Any] {
+        var scope = scopeIn
+        scope["Type"] = "individual"
+        // Keep an existing Desktop choice; otherwise fall back to the default
+        // wallpaper provider so converting from "linked" keeps the wallpaper.
+        if scope["Desktop"] == nil {
+            let desktopChoice: [String: Any] = [
+                "Configuration": Data(), "Files": [Any](), "Provider": "default",
+            ]
+            scope["Desktop"] = [
+                "Content": ["Choices": [desktopChoice],
+                            "EncodedOptionValues": "$null", "Shuffle": "$null"],
+                "LastSet": now, "LastUse": now,
+            ]
+        }
+        scope["Idle"] = [
+            "Content": ["Choices": [idleChoice],
+                        "EncodedOptionValues": idleOpts, "Shuffle": "$null"],
+            "LastSet": now, "LastUse": now,
+        ]
+        scope.removeValue(forKey: "Linked")
+        return scope
+    }
+
+    for key in ["AllSpacesAndDisplays", "SystemDefault"] {
+        root[key] = patched(root[key] as? [String: Any] ?? [:])
+    }
+    // Per-display / per-space overrides would shadow our setting: patch them too.
+    for group in ["Displays", "Spaces"] {
+        if var g = root[group] as? [String: Any] {
+            for k in g.keys {
+                if let scope = g[k] as? [String: Any] { g[k] = patched(scope) }
+            }
+            root[group] = g
+        }
+    }
+
+    if let out = try? PropertyListSerialization.data(
+        fromPropertyList: root, format: .binary, options: 0) {
+        try? out.write(to: URL(fileURLWithPath: storePath))
+    }
+}
 
 setButton.action = {
     let module = catalog[currentIdx]
@@ -451,20 +535,24 @@ setButton.action = {
     }
     // 2. Make sure the sandboxed saver sees the current settings.
     AfterDork.write(settings)
-    // 3. Select it as the legacy screen saver module.
+    // 3. Select it in the legacy defaults (ScreenSaverEngine / Demo path).
     let dict: [String: Any] = ["moduleName": module.id, "path": dest, "type": 0]
     CFPreferencesSetValue("moduleDict" as CFString, dict as CFDictionary,
                           "com.apple.screensaver" as CFString,
                           kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)
     CFPreferencesSynchronize("com.apple.screensaver" as CFString,
                              kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)
-    // 4. Kick the wallpaper machinery so Tahoe notices (known workaround).
-    let kick = Process()
-    kick.executableURL = URL(fileURLWithPath: "/bin/zsh")
-    kick.arguments = ["-c", "pkill -9 legacyScreenSaver 2>/dev/null; killall WallpaperAgent 2>/dev/null; true"]
-    try? kick.run()
+    // 4. Select it in the Wallpaper store (the path Tahoe actually honors).
+    setWallpaperStoreIdle(moduleURL: URL(fileURLWithPath: dest))
     NSSound.beep()
     statusLabel.stringValue = "\u{2713} \(module.display) is now your screen saver."
+}
+
+demoButton.action = {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    p.arguments = ["/System/Library/CoreServices/ScreenSaverEngine.app"]
+    try? p.run()
 }
 
 rebuildOptions()

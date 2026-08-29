@@ -520,9 +520,11 @@ func setWallpaperStoreIdle(moduleURL: URL) {
     }
 }
 
-setButton.action = {
-    let module = catalog[currentIdx]
-    // 1. Install (or refresh) the .saver bundle from our Resources.
+/// Installs the module's .saver bundle, writes the shared settings, and
+/// selects it in the legacy screen saver defaults (what ScreenSaverEngine
+/// reads). Returns the installed path.
+@discardableResult
+func installAndSelectLegacy(_ module: Module) -> String {
     let fm = FileManager.default
     let destDir = NSHomeDirectory() + "/Library/Screen Savers"
     let dest = destDir + "/\(module.id).saver"
@@ -533,26 +535,36 @@ setButton.action = {
         try? fm.removeItem(atPath: dest)
         try? fm.copyItem(atPath: src, toPath: dest)
     }
-    // 2. Make sure the sandboxed saver sees the current settings.
     AfterDork.write(settings)
-    // 3. Select it in the legacy defaults (ScreenSaverEngine / Demo path).
     let dict: [String: Any] = ["moduleName": module.id, "path": dest, "type": 0]
     CFPreferencesSetValue("moduleDict" as CFString, dict as CFDictionary,
                           "com.apple.screensaver" as CFString,
                           kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)
     CFPreferencesSynchronize("com.apple.screensaver" as CFString,
                              kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)
-    // 4. Select it in the Wallpaper store (the path Tahoe actually honors).
+    return dest
+}
+
+setButton.action = {
+    let module = catalog[currentIdx]
+    let dest = installAndSelectLegacy(module)
+    // Also select it in the Wallpaper store (the path Tahoe's idle honors).
     setWallpaperStoreIdle(moduleURL: URL(fileURLWithPath: dest))
     NSSound.beep()
     statusLabel.stringValue = "\u{2713} \(module.display) is now your screen saver."
 }
 
 demoButton.action = {
-    let p = Process()
-    p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-    p.arguments = ["/System/Library/CoreServices/ScreenSaverEngine.app"]
-    try? p.run()
+    // Demo whatever is highlighted in the list, not whatever was last set.
+    let module = catalog[currentIdx]
+    installAndSelectLegacy(module)
+    statusLabel.stringValue = "Demonstrating \(module.display)\u{2026} (move the mouse to stop)"
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        p.arguments = ["/System/Library/CoreServices/ScreenSaverEngine.app"]
+        try? p.run()
+    }
 }
 
 rebuildOptions()

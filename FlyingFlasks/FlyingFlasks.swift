@@ -16,6 +16,14 @@ private struct Star {
 
 private enum FlyerKind { case erlenmeyer, roundBottom, nmrTube }
 
+private struct Drop {
+    var x: CGFloat, y: CGFloat
+    var vx: CGFloat, vy: CGFloat
+    var hue: CGFloat
+    var size: CGFloat
+    var life: Int
+}
+
 private struct Flyer {
     var kind: FlyerKind
     var x: CGFloat, y: CGFloat
@@ -33,6 +41,7 @@ public final class FlyingFlasksView: ScreenSaverView {
 
     private var stars: [Star] = []
     private var flyers: [Flyer] = []
+    private var drops: [Drop] = []
     private var t: CGFloat = 0
     // Classic toaster heading: down and to the left.
     private let flightDir = CGVector(dx: -0.868, dy: -0.496)
@@ -119,7 +128,27 @@ public final class FlyingFlasksView: ScreenSaverView {
                 f.scale = flyers[i].scale  // keep depth slot so draw order stays valid
                 flyers[i] = f
             }
+            // Open glassware sloshes: a drop escapes the mouth now and then.
+            // NMR tubes are capped and drip nothing, obviously.
+            let f = flyers[i]
+            if f.kind != .nmrTube, drops.count < 60, CGFloat.random(in: 0...1) < 0.02 {
+                let v2 = f.speed * (0.5 + f.scale)
+                drops.append(Drop(x: f.x + rnd(-4...4) * f.scale,
+                                  y: f.y + 31 * f.scale,
+                                  vx: flightDir.dx * v2 * 0.5 + rnd(-0.4...0.4),
+                                  vy: rnd(0.5...1.6),
+                                  hue: f.hue,
+                                  size: rnd(2.0...3.2) * f.scale,
+                                  life: 110))
+            }
         }
+        for i in drops.indices {
+            drops[i].x += drops[i].vx
+            drops[i].y += drops[i].vy
+            drops[i].vy -= 0.16  // gravity
+            drops[i].life -= 1
+        }
+        drops.removeAll { $0.life <= 0 || $0.y < -20 }
         needsDisplay = true
     }
 
@@ -129,7 +158,27 @@ public final class FlyingFlasksView: ScreenSaverView {
         ctx.setFillColor(CGColor(red: 0.012, green: 0.012, blue: 0.055, alpha: 1))
         ctx.fill(bounds)
         drawStars(ctx)
+        drawDrops(ctx)
         for f in flyers { drawFlyer(ctx, f) }
+    }
+
+    private func drawDrops(_ ctx: CGContext) {
+        for d in drops {
+            let fade = min(CGFloat(d.life) / 30.0, 1)
+            let color = NSColor(calibratedHue: d.hue, saturation: 0.8,
+                                brightness: 0.9, alpha: 0.9 * fade)
+            ctx.setFillColor(color.cgColor)
+            // Teardrop: elongates as it picks up speed falling
+            let stretch = min(1.0 + abs(d.vy) * 0.12, 1.8)
+            ctx.fillEllipse(in: CGRect(x: d.x - d.size / 2,
+                                       y: d.y - d.size * stretch / 2,
+                                       width: d.size, height: d.size * stretch))
+            ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.5 * fade))
+            let hr = d.size * 0.18
+            ctx.fillEllipse(in: CGRect(x: d.x - d.size * 0.15 - hr,
+                                       y: d.y + d.size * 0.2 - hr,
+                                       width: 2 * hr, height: 2 * hr))
+        }
     }
 
     private func drawStars(_ ctx: CGContext) {

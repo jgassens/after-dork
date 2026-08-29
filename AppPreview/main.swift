@@ -2,7 +2,7 @@ import AppKit
 import ScreenSaver
 
 // After Dork Preview — a windowed app hosting all the savers live.
-// Keys 1–5 switch savers, Q or Esc quits.
+// Keys 1–6 switch savers, Q or Esc quits.
 
 let savers: [(name: String, make: (NSRect) -> ScreenSaverView)] = [
     ("Flying Flasks", { FlyingFlasksView(frame: $0, isPreview: false)! }),
@@ -10,6 +10,7 @@ let savers: [(name: String, make: (NSRect) -> ScreenSaverView)] = [
     ("Lattice Maze", { LatticeMazeView(frame: $0, isPreview: false)! }),
     ("Mystify Origami", { MystifyPolymersView(frame: $0, isPreview: false)! }),
     ("Stoddart Reef", { StoddartReefView(frame: $0, isPreview: false)! }),
+    ("Orbital Box", { OrbitalBoxView(frame: $0, isPreview: false)! }),
 ]
 
 let app = NSApplication.shared
@@ -28,11 +29,11 @@ func show(_ i: Int) {
     let view = entry.make(rect)
     currentView = view
     win.contentView = view
-    win.title = "After Dork — \(entry.name)   (1–5 to switch, Q to quit)"
+    win.title = "After Dork — \(entry.name)   (1–6 to switch, Q to quit)"
     view.startAnimation()
 }
 
-// Start on the saver given as a 1-5 argument, otherwise pick at random.
+// Start on the saver given as a 1-6 argument, otherwise pick at random.
 let requested = CommandLine.arguments.dropFirst().compactMap { Int($0) }.first
 show(requested.map { max(1, min(savers.count, $0)) - 1 }
     ?? Int.random(in: 0..<savers.count))
@@ -47,7 +48,7 @@ RunLoop.main.add(timer, forMode: .common)
 
 NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
     switch event.charactersIgnoringModifiers {
-    case "1", "2", "3", "4", "5":
+    case "1", "2", "3", "4", "5", "6":
         show(Int(event.charactersIgnoringModifiers!)! - 1)
         return nil
     case "q", "\u{1B}":

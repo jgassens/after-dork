@@ -4,7 +4,7 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>en</string>
 	<key>CFBundleExecutable</key><string>GlasswarePipes</string>
-	<key>CFBundleIdentifier</key><string>com.gassensmith.afterhood.glasswarepipes</string>
+	<key>CFBundleIdentifier</key><string>com.gassensmith.afterdork.glasswarepipes</string>
 	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
 	<key>CFBundleName</key><string>Glassware Pipes</string>
 	<key>CFBundlePackageType</key><string>BNDL</string>
@@ -12,6 +12,6 @@
 	<key>CFBundleVersion</key><string>1</string>
 	<key>LSMinimumSystemVersion</key><string>11.0</string>
 	<key>NSPrincipalClass</key><string>GlasswarePipesView</string>
-	<key>NSHumanReadableCopyright</key><string>After Hood — chemistry screen savers</string>
+	<key>NSHumanReadableCopyright</key><string>After Dork — chemistry screen savers</string>
 </dict>
 </plist>

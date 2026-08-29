@@ -1,7 +1,7 @@
 import AppKit
 import ScreenSaver
 
-// After Hood Preview — a windowed app hosting all four savers live.
+// After Dork Preview — a windowed app hosting all four savers live.
 // Keys 1–4 switch savers, Q or Esc quits.
 
 let savers: [(name: String, make: (NSRect) -> ScreenSaverView)] = [
@@ -27,11 +27,14 @@ func show(_ i: Int) {
     let view = entry.make(rect)
     currentView = view
     win.contentView = view
-    win.title = "After Hood — \(entry.name)   (1–4 to switch, Q to quit)"
+    win.title = "After Dork — \(entry.name)   (1–4 to switch, Q to quit)"
     view.startAnimation()
 }
 
-show(1)  // start on Glassware Pipes
+// Start on the saver given as a 1-4 argument, otherwise pick at random.
+let requested = CommandLine.arguments.dropFirst().compactMap { Int($0) }.first
+show(requested.map { max(1, min(savers.count, $0)) - 1 }
+    ?? Int.random(in: 0..<savers.count))
 win.center()
 win.makeKeyAndOrderFront(nil)
 app.activate(ignoringOtherApps: true)

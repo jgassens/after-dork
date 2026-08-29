@@ -1,4 +1,4 @@
-# After Hood — chemistry screen savers
+# After Dork — chemistry screen savers
 
 Retro screen savers for macOS in the spirit of After Dark and the classic
 Windows savers, parodied for the chemistry lab. Everything is drawn

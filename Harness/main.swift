@@ -23,7 +23,7 @@ if args.contains("--window") {
     let win = NSWindow(contentRect: rect,
                        styleMask: [.titled, .closable, .miniaturizable],
                        backing: .buffered, defer: false)
-    win.title = "After Hood — live preview"
+    win.title = "After Dork — live preview"
     let view = harnessMake(rect)
     win.contentView = view
     win.center()

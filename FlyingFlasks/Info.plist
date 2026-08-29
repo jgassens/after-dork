@@ -4,7 +4,7 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>en</string>
 	<key>CFBundleExecutable</key><string>FlyingFlasks</string>
-	<key>CFBundleIdentifier</key><string>com.gassensmith.afterhood.flyingflasks</string>
+	<key>CFBundleIdentifier</key><string>com.gassensmith.afterdork.flyingflasks</string>
 	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
 	<key>CFBundleName</key><string>Flying Flasks</string>
 	<key>CFBundlePackageType</key><string>BNDL</string>
@@ -12,6 +12,6 @@
 	<key>CFBundleVersion</key><string>1</string>
 	<key>LSMinimumSystemVersion</key><string>11.0</string>
 	<key>NSPrincipalClass</key><string>FlyingFlasksView</string>
-	<key>NSHumanReadableCopyright</key><string>After Hood — chemistry screen savers</string>
+	<key>NSHumanReadableCopyright</key><string>After Dork — chemistry screen savers</string>
 </dict>
 </plist>

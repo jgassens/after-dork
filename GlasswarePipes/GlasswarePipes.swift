@@ -184,10 +184,21 @@ public final class GlasswarePipesView: ScreenSaverView {
         addTube(from: world(from), to: world(to), color: p.color)
         p.head = to
         guard let nd = chooseDir(from: to, current: p.dir) else {
-            // Stuck: cap it with a ball joint and retire the pipe.
-            addBall(at: world(to), color: p.color, r: 0.30, clamped: false)
+            // Stuck: retire the pipe — half the time it ends in an alembic
+            // (the alchemists were here first), otherwise a ball-joint cap.
+            if rnd(0...1) < 0.5 {
+                addAlembic(at: world(to), color: p.color)
+            } else {
+                addBall(at: world(to), color: p.color, r: 0.30, clamped: false)
+            }
             p.alive = false
             deadStarts += 1
+            return
+        }
+        if rnd(0...1) < 0.03 {
+            // Deliberate retirement: the run ends in an alembic.
+            addAlembic(at: world(to), color: p.color)
+            p.alive = false
             return
         }
         if nd != p.dir {
@@ -232,6 +243,13 @@ public final class GlasswarePipesView: ScreenSaverView {
         let (pt, z) = camera.project(p)
         items.append(DrawItem(kind: clamped ? 4 : 1, depth: z - 0.01, p1: pt,
                               w: r * 2 * camera.fl / max(z, 0.6), color: color))
+        needSort = true
+    }
+
+    private func addAlembic(at p: V3, color: Int) {
+        let (pt, z) = camera.project(p)
+        items.append(DrawItem(kind: 5, depth: z - 0.02, p1: pt,
+                              w: 0.5 * camera.fl / max(z, 0.6), color: color))
         needSort = true
     }
 
@@ -352,9 +370,68 @@ public final class GlasswarePipesView: ScreenSaverView {
             }
             drawCapsule(ctx, item.p1, item.p2, w: item.w * 0.55,
                         color: item.color, depth: item.depth)
+        case 5:
+            drawAlembic(ctx, at: item.p1, s: item.w, color: item.color, depth: item.depth)
         default:
             break
         }
+    }
+
+    /// An alembic still-head: onion-domed bulb with a long spout angling down,
+    /// mid-distillation.
+    private func drawAlembic(_ ctx: CGContext, at p: CGPoint, s: Double,
+                             color: Int, depth: Double) {
+        let body = CGMutablePath()
+        body.addEllipse(in: CGRect(x: p.x - s, y: p.y - s, width: 2 * s, height: 2 * s))
+        // Onion dome rising to a point
+        body.move(to: CGPoint(x: p.x - s * 0.72, y: p.y + s * 0.64))
+        body.addQuadCurve(to: CGPoint(x: p.x, y: p.y + s * 1.95),
+                          control: CGPoint(x: p.x - s * 0.6, y: p.y + s * 1.5))
+        body.addQuadCurve(to: CGPoint(x: p.x + s * 0.72, y: p.y + s * 0.64),
+                          control: CGPoint(x: p.x + s * 0.6, y: p.y + s * 1.5))
+        body.closeSubpath()
+
+        ctx.addPath(body)
+        ctx.setFillColor(shade(color, 0.75, alpha: 0.96, depth: depth))
+        ctx.fillPath()
+        // Distillate pooling in the bulb
+        ctx.saveGState()
+        ctx.addEllipse(in: CGRect(x: p.x - s, y: p.y - s, width: 2 * s, height: 2 * s))
+        ctx.clip()
+        ctx.setFillColor(shade((color + 2) % tints.count, 1.0, alpha: 0.95, depth: depth))
+        ctx.fill(CGRect(x: p.x - s, y: p.y - s, width: 2 * s, height: s * 0.85))
+        ctx.restoreGState()
+        // Outline
+        ctx.addPath(body)
+        ctx.setStrokeColor(shade(color, 0.4, alpha: 1, depth: depth))
+        ctx.setLineWidth(max(s * 0.12, 1.2))
+        ctx.strokePath()
+        // Spout: off the dome shoulder, angling down like it means business
+        let sw = max(s * 0.3, 1.5)
+        let spoutStart = CGPoint(x: p.x + s * 0.62, y: p.y + s * 0.85)
+        let spoutMid = CGPoint(x: p.x + s * 1.6, y: p.y + s * 0.25)
+        let spoutEnd = CGPoint(x: p.x + s * 2.25, y: p.y - s * 0.75)
+        ctx.setLineCap(.round)
+        ctx.setStrokeColor(shade(color, 0.45, alpha: 1, depth: depth))
+        ctx.setLineWidth(sw)
+        ctx.move(to: spoutStart); ctx.addLine(to: spoutMid); ctx.strokePath()
+        ctx.setLineWidth(sw * 0.65)
+        ctx.move(to: spoutMid); ctx.addLine(to: spoutEnd); ctx.strokePath()
+        ctx.setStrokeColor(shade(color, 0.9, alpha: 1, depth: depth))
+        ctx.setLineWidth(sw * 0.45)
+        ctx.move(to: spoutStart); ctx.addLine(to: spoutMid)
+        ctx.addLine(to: spoutEnd); ctx.strokePath()
+        // The drip
+        let dr = s * 0.14
+        ctx.setFillColor(shade((color + 2) % tints.count, 1.1, alpha: 1, depth: depth))
+        ctx.fillEllipse(in: CGRect(x: spoutEnd.x - dr, y: spoutEnd.y - s * 0.45 - dr,
+                                   width: 2 * dr, height: 2.6 * dr))
+        // Glass glint on the bulb
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.55))
+        ctx.setLineWidth(max(s * 0.09, 1))
+        ctx.addArc(center: p, radius: s * 0.72,
+                   startAngle: 2.2, endAngle: 3.0, clockwise: false)
+        ctx.strokePath()
     }
 
     /// Colored plastic Keck clip straddling a ground-glass joint: a spine

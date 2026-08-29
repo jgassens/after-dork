@@ -10,7 +10,7 @@ no Xcode project.
 | **Flying Flasks** | After Dark "Flying Toasters" | Winged Erlenmeyers flap across a starfield; NMR tubes drift by as the toast; rare round-bottom flask on bat wings |
 | **Glassware Pipes** | Windows "3D Pipes" | Glass tubing grows joint by joint with ball joints, frosted ground-glass collars, and condenser coils, until the hood is full and it flushes |
 | **Lattice Maze** | Windows 95 "3D Maze" | First-person crawl through a MOF: metal nodes, strut walls, checkerboard floor; bumping into a spinning solvent molecule (benzene, water, C60) flips you upside down |
-| **Mystify Polymers** | Windows "Mystify" | Three real polymers — Kevlar, nylon-6,6, polystyrene — drawn as structural formulas wiggling through conformations, plus a benzene ring bouncing DVD-logo style |
+| **Mystify Polymers** | Windows "Mystify" | Two DNA double helices (color-coded base-pair rungs, 5·3 ends) and a lettered RNA strand wiggling through conformations, plus a benzene ring bouncing DVD-logo style |
 
 ## Build & install
 

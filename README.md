@@ -16,7 +16,7 @@ procedurally in Swift, the way God and Berkeley Systems intended.
 
 ---
 
-## Downloading it (the bit you're here for)
+## Downloading it 
 
 You do not need to know what a "git" is. Follow these steps precisely and
 nobody gets hurt:
@@ -43,8 +43,7 @@ yourself.
 ![The control panel. Yes, those bevels are load-bearing.](docs/control-panel.png)
 
 Updates install themselves automatically (via Sparkle), so once it's on your
-machine it will quietly improve over time, which is more than can be said for
-most of us.
+machine it will quietly improve over time, and honestly? That's rare. em dash. em dash.
 
 ---
 
@@ -137,14 +136,14 @@ around all of it: press **Set Screen Saver** in the app and it does the
 paperwork directly. If macOS still sulks, press it again, harder.
 
 **Can I get just the .saver files like a person from the past?**
-The app quietly installs the module you set into `~/Library/Screen Savers`,
+The app "quietly" installs the module you set into `~/Library/Screen Savers`,
 where System Settings can also see it. Or build them all from source, below.
 
 **Who is responsible for this?**
 The [Gassensmith Lab](https://www.gassensmithlab.com) energy, a
-regrettable amount of 90s nostalgia, and an AI pair programmer who was told
-"make the flasks flap like the original toasters" and simply did it.
-Development was conducted entirely after dark. Hence.
+regrettable amount of 90s nostalgia, and a programmer who said
+"make the flasks flap like the original toasters" to Clod and Clod simply did it.
+Then we went a little nuts.
 
 ---
 

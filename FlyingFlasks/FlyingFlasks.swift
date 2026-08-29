@@ -226,9 +226,15 @@ public final class FlyingFlasksView: ScreenSaverView {
         return p
     }
 
+    /// The After Dark toasters didn't glide — they snapped through a 4-pose
+    /// mechanical flap cycle (up, mid, down, mid) with no smoothing.
+    private func toasterFlap(_ phase: CGFloat) -> CGFloat {
+        let poses: [CGFloat] = [0.95, 0.45, -0.22, 0.45]
+        return poses[Int(phase / (.pi / 2)) % 4]
+    }
+
     private func drawErlenmeyer(_ ctx: CGContext, _ f: Flyer) {
-        // Flap: mostly-up strokes like the toasters
-        let flap = 0.55 * sin(f.flapPhase) + 0.25
+        let flap = toasterFlap(f.flapPhase)
         drawWings(ctx, flap: flap, shoulder: CGPoint(x: 11, y: 6), bat: false)
 
         let body = erlenmeyerBody()
@@ -260,7 +266,7 @@ public final class FlyingFlasksView: ScreenSaverView {
     }
 
     private func drawRoundBottom(_ ctx: CGContext, _ f: Flyer) {
-        let flap = 0.5 * sin(f.flapPhase) + 0.2
+        let flap = toasterFlap(f.flapPhase)
         drawWings(ctx, flap: flap, shoulder: CGPoint(x: 13, y: 2), bat: true)
 
         let body = CGMutablePath()

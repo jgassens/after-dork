@@ -70,7 +70,7 @@ public final class LatticeMazeView: ScreenSaverView {
         posX = 1.5; posY = 1.5
         angle = 0
         molecules = []
-        for _ in 0..<8 { placeMolecule() }
+        for _ in 0..<5 { placeMolecule() }
     }
 
     // MARK: - Maze generation (recursive backtracker)
@@ -189,11 +189,12 @@ public final class LatticeMazeView: ScreenSaverView {
                                        width: sz.width + 4, height: sz.height + 2))
             str.draw(at: CGPoint(x: p.x - sz.width / 2, y: p.y - sz.height / 2))
         }
-        func metalBall(_ p: CGPoint, _ r: CGFloat) {
-            ctx.setFillColor(CGColor(red: steel.0 * 0.4, green: steel.1 * 0.4,
-                                     blue: steel.2 * 0.4, alpha: 1))
+        func metalBall(_ p: CGPoint, _ r: CGFloat,
+                       _ tint: (CGFloat, CGFloat, CGFloat)) {
+            ctx.setFillColor(CGColor(red: tint.0 * 0.4, green: tint.1 * 0.4,
+                                     blue: tint.2 * 0.4, alpha: 1))
             ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
-            ctx.setFillColor(CGColor(red: steel.0, green: steel.1, blue: steel.2, alpha: 1))
+            ctx.setFillColor(CGColor(red: tint.0, green: tint.1, blue: tint.2, alpha: 1))
             let r2 = r * 0.72
             ctx.fillEllipse(in: CGRect(x: p.x - r2 - r * 0.1, y: p.y - r2 + r * 0.1,
                                        width: 2 * r2, height: 2 * r2))
@@ -216,30 +217,51 @@ public final class LatticeMazeView: ScreenSaverView {
         }
 
         if style == 0 {
-            // ZIF-8: 2-methylimidazolate bridging two Zn through N1 and N3.
-            // Ring: N1-C2(-CH3)-N3-C4-C5; doubles drawn C2=N3, C4=C5.
-            let r: CGFloat = 22
-            let n1 = pt(c, r, 243), c2 = pt(c, r, 315), n3 = pt(c, r, 27)
-            let c4 = pt(c, r, 99), c5 = pt(c, r, 171)
+            // ZIF-8: 2-methylimidazolate bridging two Zn at the tile's side-edge
+            // midpoints. The ring sits above the Zn-Zn line so the Zn-Im-Zn
+            // angle comes out ~145 degrees — the zeolitic angle that makes
+            // ZIFs ZIFs. Tiled horizontally this reads as the real zigzag
+            // chain. Ring: N1-C2(-CH3)-N3-C4-C5; doubles drawn C2=N3, C4=C5.
+            let znTint: (CGFloat, CGFloat, CGFloat) = (0.55, 0.62, 0.78)
+            let znL = CGPoint(x: 0, y: S / 2)
+            let znR = CGPoint(x: S, y: S / 2)
+            let rc = CGPoint(x: S / 2, y: S / 2 + 24)
+            let r: CGFloat = 19
+            let n1 = pt(rc, r, 198), c2 = pt(rc, r, 270), n3 = pt(rc, r, 342)
+            let c4 = pt(rc, r, 54), c5 = pt(rc, r, 126)
             line(n1, c2, 2.6, bond)
             line(c2, n3, 2.6, bond)
             line(n3, c4, 2.6, bond)
             line(c4, c5, 2.6, bond)
             line(c5, n1, 2.6, bond)
-            innerBond(c2, n3, c, 2.0)
-            innerBond(c4, c5, c, 2.0)
-            // 2-methyl group
-            let me = pt(c, r + 13, 315)
+            innerBond(c2, n3, rc, 2.0)
+            innerBond(c4, c5, rc, 2.0)
+            // 2-methyl hangs down into the pore
+            let me = pt(rc, r + 11, 270)
             line(c2, me, 2.4, bond)
-            atomLabel("CH\u{2083}", pt(c, r + 24, 315), NSColor.white, 10)
-            // N -> Zn coordination to the diagonal corner nodes
-            line(n1, toward(corners[0], from: n1, stopAt: 18), 2.2, bond)
-            line(n3, toward(corners[2], from: n3, stopAt: 18), 2.2, bond)
+            atomLabel("CH\u{2083}", pt(rc, r + 22, 270), NSColor.white, 10)
+            // N -> Zn coordination, radial through each nitrogen
+            line(n1, toward(znL, from: n1, stopAt: 15), 2.2, bond)
+            line(n3, toward(znR, from: n3, stopAt: 15), 2.2, bond)
             atomLabel("N", n1, nBlue, 12)
             atomLabel("N", n3, nBlue, 12)
+            // Tetrahedral Zn: stub bonds toward the imidazolates we can't see
+            for (ball, mirror) in [(znL, CGFloat(1)), (znR, CGFloat(-1))] {
+                for ang: CGFloat in [-52, -115] {
+                    let a = mirror > 0 ? ang : 180 - ang
+                    line(pt(ball, 13, a), pt(ball, 26, a), 2.0,
+                         CGColor(red: 0.5, green: 0.53, blue: 0.6, alpha: 1))
+                }
+            }
+            metalBall(znL, 13, znTint)
+            metalBall(znR, 13, znTint)
+            atomLabel("Zn", CGPoint(x: 17, y: S / 2 + 21),
+                      NSColor(calibratedWhite: 0.62, alpha: 1), 8)
         } else {
-            // UiO-66: terephthalate (BDC), para carboxylates chelating the
-            // diagonal metal nodes; Kekulé alternating double bonds.
+            // UiO-66: terephthalate (BDC) between diagonal Zr6 cluster nodes.
+            // O-C-O opened to ~125 degrees, and the two oxygens of each
+            // carboxylate bridge two DIFFERENT Zr atoms of the cluster
+            // (mu2-eta1:eta1), not chelate one metal.
             let r: CGFloat = 20
             var v: [CGPoint] = []
             for k in 0..<6 { v.append(pt(c, r, 45 + CGFloat(k) * 60)) }
@@ -250,9 +272,10 @@ public final class LatticeMazeView: ScreenSaverView {
                 let dirx = (vp.x - c.x) / r, diry = (vp.y - c.y) / r
                 let cc = CGPoint(x: vp.x + dirx * 13, y: vp.y + diry * 13)
                 line(vp, cc, 2.6, bond)
-                // Two oxygens fan out from the carboxylate carbon
                 let baseA = atan2(diry, dirx)
-                for (spread, isDouble) in [(CGFloat(0.62), true), (CGFloat(-0.62), false)] {
+                // Perpendicular to the diagonal, to split the two Zr targets
+                let perp = CGPoint(x: -diry, y: dirx)
+                for (spread, isDouble) in [(CGFloat(1.09), true), (CGFloat(-1.09), false)] {
                     let o = CGPoint(x: cc.x + 12 * cos(baseA + spread),
                                     y: cc.y + 12 * sin(baseA + spread))
                     line(cc, o, 2.4, bond)
@@ -262,14 +285,33 @@ public final class LatticeMazeView: ScreenSaverView {
                         line(CGPoint(x: cc.x + px / pl * 3.4, y: cc.y + py / pl * 3.4),
                              CGPoint(x: o.x + px / pl * 3.4, y: o.y + py / pl * 3.4), 1.8, bond)
                     }
-                    // O -> Zr coordination
-                    line(o, toward(corner, from: o, stopAt: 18), 1.6,
+                    // Each O binds its own Zr of the cluster
+                    let side: CGFloat = spread > 0 ? 9 : -9
+                    let target = CGPoint(x: corner.x + dirx * 12 + perp.x * side,
+                                         y: corner.y + diry * 12 + perp.y * side)
+                    line(o, target, 1.6,
                          CGColor(red: 0.55, green: 0.58, blue: 0.66, alpha: 1))
                     atomLabel("O", o, oRed, 11)
                 }
             }
+            // Zr6O4(OH)4 nodes: a cluster of Zr atoms with mu3-O caps, not
+            // a single metal ball.
+            for corner in corners {
+                for off in [CGPoint(x: 0, y: 10), CGPoint(x: 9, y: -6),
+                            CGPoint(x: -9, y: -6)] {
+                    metalBall(CGPoint(x: corner.x + off.x, y: corner.y + off.y), 8, steel)
+                }
+                ctx.setFillColor(oRed.cgColor)
+                for off in [CGPoint(x: 0, y: -8), CGPoint(x: 7, y: 5),
+                            CGPoint(x: -7, y: 5)] {
+                    ctx.fillEllipse(in: CGRect(x: corner.x + off.x - 2.6,
+                                               y: corner.y + off.y - 2.6,
+                                               width: 5.2, height: 5.2))
+                }
+            }
+            atomLabel("Zr\u{2086}", CGPoint(x: 26, y: 24),
+                      NSColor(calibratedWhite: 0.62, alpha: 1), 8)
         }
-        for p in corners { metalBall(p, 15) }
         NSGraphicsContext.restoreGraphicsState()
         return readPixels(ctx, size: wts)
     }
@@ -538,7 +580,9 @@ public final class LatticeMazeView: ScreenSaverView {
                 if (side == 0 && rayX > 0) || (side == 1 && rayY > 0) { texX = wts - texX - 1 }
                 if texX < 0 { texX = 0 }
                 if texX >= wts { texX = wts - 1 }
-                let tex = ((mapX + mapY) & 1) == 0 ? wallTexA : wallTexB
+                // Whole neighborhoods share a framework, so ligand chains
+                // continue across adjacent wall tiles instead of alternating.
+                let tex = (((mapX / 6) + (mapY / 6)) & 1) == 0 ? wallTexA : wallTexB
                 let texStep = Double(wts) / Double(lineH)
                 var texPos = Double(drawStart - halfH + lineH / 2) * texStep
                 var shade = max(0.22, min(1.0, 1.25 - perpDist * 0.11))

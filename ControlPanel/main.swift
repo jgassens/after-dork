@@ -1,5 +1,6 @@
 import AppKit
 import ScreenSaver
+import Sparkle
 
 // After Dork 1.0 — the control panel, styled like it fell out of 1996.
 // Pick a module from the list, watch it in the preview monitor, fiddle the
@@ -335,6 +336,10 @@ previewHost.wantsLayer = true
 previewHost.layer?.backgroundColor = NSColor.black.cgColor
 root.addSubview(previewHost)
 
+let updaterController = SPUStandardUpdaterController(startingUpdater: true,
+                                                     updaterDelegate: nil,
+                                                     userDriverDelegate: nil)
+
 let statusLabel = NSTextField(labelWithString: "Welcome to After Dork.")
 statusLabel.frame = NSRect(x: 14, y: winH - 532, width: 400, height: 18)
 statusLabel.font = NSFont.systemFont(ofSize: 11)
@@ -431,11 +436,16 @@ let demoButton = RetroButton(frame: NSRect(x: winW - 330, y: 508, width: 68, hei
                              title: "Demo")
 let quitButton = RetroButton(frame: NSRect(x: winW - 254, y: 508, width: 68, height: 26),
                              title: "Quit")
-statusLabel.frame = NSRect(x: 14, y: 512, width: 360, height: 18)
+let updatesButton = RetroButton(frame: NSRect(x: winW - 448, y: 508, width: 110, height: 26),
+                                title: "Updates\u{2026}")
+statusLabel.frame = NSRect(x: 14, y: 512, width: 252, height: 18)
 root.addSubview(setButton)
 root.addSubview(demoButton)
 root.addSubview(quitButton)
+root.addSubview(updatesButton)
 root.addSubview(statusLabel)
+
+updatesButton.action = { updaterController.checkForUpdates(nil) }
 
 quitButton.action = { app.terminate(nil) }
 

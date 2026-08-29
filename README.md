@@ -1,5 +1,9 @@
 # After Dork — chemistry screen savers
 
+**[Download the latest release](https://github.com/jgassens/after-dork/releases/latest)** — unzip,
+open `After Dork.app`, pick a module, hit **Set Screen Saver**. Updates arrive
+automatically via Sparkle. Notarized for macOS 11+.
+
 Retro screen savers for macOS in the spirit of After Dark and the classic
 Windows savers, parodied for the chemistry lab. Everything is drawn
 procedurally in Swift (Core Graphics + a software raycaster) — no assets,
@@ -46,3 +50,10 @@ Each saver is one self-contained `ScreenSaverView` subclass in
 together with any saver (`-DHARNESS`) into an offscreen preview binary that
 steps the animation and writes PNG snapshots — that is how the visuals were
 tuned.
+
+## Releasing
+
+`make release` signs everything with Developer ID + hardened runtime,
+notarizes and staples via `notarytool`, publishes the zip as a GitHub
+release, and regenerates `appcast.xml` (EdDSA-signed) so existing installs
+update themselves. Vendored `Vendor/Sparkle.framework` (MIT) powers updates.

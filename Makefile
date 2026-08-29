@@ -40,12 +40,22 @@ app: all
 	cp ControlPanel/Info.plist $(APP)/Contents/Info.plist
 	swiftc -O -target arm64-apple-macos$(MIN) -module-name AfterDork \
 	    -o $(APP)/Contents/MacOS/AfterDork \
-	    $(foreach s,$(SAVERS),$(s)/$(s).swift) $(SHARED) ControlPanel/main.swift $(FRAMEWORKS)
+	    $(foreach s,$(SAVERS),$(s)/$(s).swift) $(SHARED) ControlPanel/main.swift \
+	    $(FRAMEWORKS) -F Vendor -framework Sparkle \
+	    -Xlinker -rpath -Xlinker @executable_path/../Frameworks
+	mkdir -p $(APP)/Contents/Frameworks
+	rm -rf $(APP)/Contents/Frameworks/Sparkle.framework
+	cp -R Vendor/Sparkle.framework $(APP)/Contents/Frameworks/
+	cp ControlPanel/AfterDork.icns $(APP)/Contents/Resources/
 	for s in $(SAVERS); do \
 	    rm -rf $(APP)/Contents/Resources/Savers/$$s.saver; \
 	    cp -R $(BUILD)/$$s.saver $(APP)/Contents/Resources/Savers/; \
 	done
+	codesign --force --sign - $(APP)/Contents/Frameworks/Sparkle.framework
 	codesign --force --sign - $(APP)
+
+release: app
+	scripts/release.sh
 
 install: all
 	mkdir -p "$(HOME)/Library/Screen Savers"

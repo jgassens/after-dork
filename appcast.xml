@@ -9,7 +9,7 @@
             <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.0/AfterDork-1.0.zip" length="2184004" type="application/octet-stream" sparkle:edSignature="ppfXoDmXZ2fjytJr6kH3qCcPCeVWDkIQGAC2tJx6gg+N3R4GeQopKifB7FEoxP0Rc9gT2f4lLTng9ZhAHLnGCg=="/>
+            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.0/AfterDork-1.0.zip" length="2184001" type="application/octet-stream" sparkle:edSignature="PqcGGBpb0DJl8cCqtnMj90bETtvwltltkWJnV8k3etR9cie3UNDVA6yNLlw+QNPJwkug2Nyor5KNRhdHe8Q4Bg=="/>
         </item>
     </channel>
 </rss>

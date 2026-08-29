@@ -285,22 +285,30 @@ public final class MystifyPolymersView: ScreenSaverView {
         ctx.move(to: samples[0].p)
         for s in samples.dropFirst() { ctx.addLine(to: s.p) }
         ctx.strokePath()
-        var unit = 0
+        // PPTA: the amide direction alternates between linkages, so each ring
+        // carries the same group on both sides — ring(-NH x2), ring(-CO x2).
         var i = 0
         while i < samples.count {
             let cycle = i % 6
+            let linkIdx = i / 6
+            let side: CGFloat = linkIdx % 2 == 0 ? 1 : -1
             let s = samples[i]
             let angle = atan2(s.t.dy, s.t.dx)
             if cycle == 0 {
                 hexagon(ctx, center: s.p, radius: 10, rotation: angle,
                         color: color, aromatic: true)
             } else if cycle == 3 {
-                let side: CGFloat = unit % 2 == 0 ? 1 : -1
-                drawCarbonyl(ctx, at: s.p, dir: s.t, side: side, color: color)
+                if linkIdx % 2 == 0 {
+                    drawAmideN(ctx, at: s.p, dir: s.t, side: side, color: color)
+                } else {
+                    drawCarbonyl(ctx, at: s.p, dir: s.t, side: side, color: color)
+                }
             } else if cycle == 4 {
-                let side: CGFloat = unit % 2 == 0 ? 1 : -1
-                drawAmideN(ctx, at: s.p, dir: s.t, side: side, color: color)
-                unit += 1
+                if linkIdx % 2 == 0 {
+                    drawCarbonyl(ctx, at: s.p, dir: s.t, side: side, color: color)
+                } else {
+                    drawAmideN(ctx, at: s.p, dir: s.t, side: side, color: color)
+                }
             }
             i += 1
         }
@@ -320,16 +328,20 @@ public final class MystifyPolymersView: ScreenSaverView {
         ctx.move(to: zig[0])
         for p in zig.dropFirst() { ctx.addLine(to: p) }
         ctx.strokePath()
-        var i = 2
-        while i + 1 < zig.count {
-            if i % 8 == 2 {
-                // Apex direction: even indices bulge one way, odd the other.
-                let sideC: CGFloat = i % 2 == 0 ? 1 : -1
-                drawCarbonyl(ctx, at: zig[i], dir: samples[i].t, side: sideC, color: color)
-                let sideN: CGFloat = (i + 1) % 2 == 0 ? -1 : 1
-                drawAmideN(ctx, at: zig[i + 1], dir: samples[i + 1].t, side: sideN, color: color)
+        // Nylon-6,6: -NH-(CH2)6-NH-CO-(CH2)4-CO- — amide junctions come in
+        // mirrored pairs, with 6 carbons between the nitrogens and 4 between
+        // the carbonyls. Period of 14 zigzag vertices: N,CO | 4x CH2 | CO,N | 6x CH2.
+        for i in 2..<zig.count {
+            let cycle = (i - 2) % 14
+            let apex: CGFloat = i % 2 == 0 ? 1 : -1  // stubs point out of the apex
+            switch cycle {
+            case 0, 7:
+                drawAmideN(ctx, at: zig[i], dir: samples[i].t, side: apex, color: color)
+            case 1, 6:
+                drawCarbonyl(ctx, at: zig[i], dir: samples[i].t, side: apex, color: color)
+            default:
+                break
             }
-            i += 1
         }
     }
 

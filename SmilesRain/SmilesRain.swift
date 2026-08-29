@@ -51,6 +51,8 @@ public final class SmilesRainView: ScreenSaverView {
     private var drops: [Drop] = []
     private var glyphs: [Character: [CGImage]] = [:]  // 9 brightness levels
     private var reveal: Reveal?
+    private var speedMul: CGFloat = 1
+    private var revealsOn = true
     private var revealTimer = 0
     private var tick = 0
 
@@ -67,6 +69,8 @@ public final class SmilesRainView: ScreenSaverView {
     }
 
     private func setup() {
+        speedMul = CGFloat(max(0.3, min(3, AfterDork.value("SmilesRain", "speed", 1.0))))
+        revealsOn = AfterDork.flag("SmilesRain", "reveals", true)
         let w = max(bounds.width, 640), h = max(bounds.height, 400)
         cols = Int(w / cellW)
         rows = Int(h / cellH) + 2
@@ -76,7 +80,7 @@ public final class SmilesRainView: ScreenSaverView {
 
     private func makeDrop(scattered: Bool) -> Drop {
         Drop(head: scattered ? rnd(-30...CGFloat(rows)) : -rnd(0...40),
-             speed: rnd(0.28...0.85),
+             speed: rnd(0.28...0.85) * speedMul,
              mol: Int.random(in: 0..<molecules.count),
              offset: Int.random(in: 0..<64),
              trail: Int.random(in: 13...30))
@@ -133,7 +137,7 @@ public final class SmilesRainView: ScreenSaverView {
             }
         }
         revealTimer += 1
-        if reveal == nil && revealTimer > 240 {
+        if revealsOn, reveal == nil, revealTimer > 240 {
             revealTimer = 0
             let m = molecules.randomElement()!
             reveal = Reveal(text: "\(m.name)  \u{2261}  \(m.smiles)",

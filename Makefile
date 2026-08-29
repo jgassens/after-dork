@@ -2,26 +2,27 @@ SAVERS = FlyingFlasks GlasswarePipes LatticeMaze MystifyPolymers StoddartReef Or
 MIN = 11.0
 BUILD = build
 FRAMEWORKS = -framework ScreenSaver -framework AppKit
+SHARED = Shared/Settings.swift
 
 all: $(foreach s,$(SAVERS),$(BUILD)/$(s).saver)
 
 define SAVER_template
-$(BUILD)/$(1).saver: $(1)/$(1).swift $(1)/Info.plist
+$(BUILD)/$(1).saver: $(1)/$(1).swift $(1)/Info.plist $(SHARED)
 	mkdir -p $(BUILD)/$(1).saver/Contents/MacOS
 	cp $(1)/Info.plist $(BUILD)/$(1).saver/Contents/Info.plist
 	swiftc -O -target arm64-apple-macos$(MIN) -module-name $(1) -emit-library \
-	    -o $(BUILD)/$(1)-arm64.dylib $(1)/$(1).swift $(FRAMEWORKS)
+	    -o $(BUILD)/$(1)-arm64.dylib $(1)/$(1).swift $(SHARED) $(FRAMEWORKS)
 	swiftc -O -target x86_64-apple-macos$(MIN) -module-name $(1) -emit-library \
-	    -o $(BUILD)/$(1)-x8664.dylib $(1)/$(1).swift $(FRAMEWORKS)
+	    -o $(BUILD)/$(1)-x8664.dylib $(1)/$(1).swift $(SHARED) $(FRAMEWORKS)
 	lipo -create -output $(BUILD)/$(1).saver/Contents/MacOS/$(1) \
 	    $(BUILD)/$(1)-arm64.dylib $(BUILD)/$(1)-x8664.dylib
 	codesign --force --sign - $(BUILD)/$(1).saver
 	touch $(BUILD)/$(1).saver
 
-$(BUILD)/preview-$(1): $(1)/$(1).swift Harness/main.swift
+$(BUILD)/preview-$(1): $(1)/$(1).swift Harness/main.swift $(SHARED)
 	mkdir -p $(BUILD)
 	swiftc -O -DHARNESS -module-name $(1)Preview -o $$@ \
-	    $(1)/$(1).swift Harness/main.swift $(FRAMEWORKS)
+	    $(1)/$(1).swift $(SHARED) Harness/main.swift $(FRAMEWORKS)
 
 preview-$(1): $(BUILD)/preview-$(1)
 	mkdir -p $(BUILD)/shots
@@ -32,18 +33,19 @@ $(foreach s,$(SAVERS),$(eval $(call SAVER_template,$(s))))
 
 previews: $(foreach s,$(SAVERS),preview-$(s))
 
-APP = $(BUILD)/AfterDorkPreview.app
+APP = $(BUILD)/AfterDork.app
 
-app: $(APP)
-
-$(APP): $(foreach s,$(SAVERS),$(s)/$(s).swift) AppPreview/main.swift AppPreview/Info.plist
-	mkdir -p $(APP)/Contents/MacOS
-	cp AppPreview/Info.plist $(APP)/Contents/Info.plist
-	swiftc -O -target arm64-apple-macos$(MIN) -module-name AfterDorkPreview \
-	    -o $(APP)/Contents/MacOS/AfterDorkPreview \
-	    $(foreach s,$(SAVERS),$(s)/$(s).swift) AppPreview/main.swift $(FRAMEWORKS)
+app: all
+	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources/Savers
+	cp ControlPanel/Info.plist $(APP)/Contents/Info.plist
+	swiftc -O -target arm64-apple-macos$(MIN) -module-name AfterDork \
+	    -o $(APP)/Contents/MacOS/AfterDork \
+	    $(foreach s,$(SAVERS),$(s)/$(s).swift) $(SHARED) ControlPanel/main.swift $(FRAMEWORKS)
+	for s in $(SAVERS); do \
+	    rm -rf $(APP)/Contents/Resources/Savers/$$s.saver; \
+	    cp -R $(BUILD)/$$s.saver $(APP)/Contents/Resources/Savers/; \
+	done
 	codesign --force --sign - $(APP)
-	touch $(APP)
 
 install: all
 	mkdir -p "$(HOME)/Library/Screen Savers"
@@ -55,4 +57,4 @@ install: all
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all previews install clean $(foreach s,$(SAVERS),preview-$(s))
+.PHONY: all previews install clean app $(foreach s,$(SAVERS),preview-$(s))

@@ -63,9 +63,11 @@ public final class StoddartReefView: ScreenSaverView {
 
     private func setup() {
         let w = max(bounds.width, 800), h = max(bounds.height, 500)
-        var kinds: [SwimmerKind] = [.rotaxane, .rotaxane, .catenane, .borromean,
-                                    .jellyfish, .trefoil, .daisyChain, .cucurbituril]
-        if !isPreview { kinds += [.rotaxane, .jellyfish, .daisyChain, .cucurbituril] }
+        let census: [SwimmerKind] = [.rotaxane, .catenane, .jellyfish, .borromean,
+                                     .daisyChain, .cucurbituril, .trefoil, .rotaxane]
+        var pop = max(3, min(20, Int(AfterDork.value("StoddartReef", "population", 12))))
+        if isPreview { pop = min(pop, 6) }
+        let kinds = (0..<pop).map { census[$0 % census.count] }
         swimmers = kinds.map { kind in
             Swimmer(kind: kind,
                     x: rnd(0...w),
@@ -76,7 +78,9 @@ public final class StoddartReefView: ScreenSaverView {
                     phaseRate: rnd(0.03...0.06),
                     scale: rnd(0.6...1.15))
         }
-        bubbles = (0..<(isPreview ? 6 : 14)).map { _ in
+        let bubbleCount = AfterDork.flag("StoddartReef", "bubbles", true)
+            ? (isPreview ? 6 : 14) : 0
+        bubbles = (0..<bubbleCount).map { _ in
             Bubble(x: rnd(0...w), y: rnd(0...h), r: rnd(2...5),
                    speed: rnd(0.8...2.0), wobble: rnd(0...6.28))
         }

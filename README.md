@@ -24,9 +24,20 @@ make previews   # render PNG frames offscreen into build/shots/ (no install need
 make clean
 ```
 
-After `make install`, pick them in **System Settings → Screen Saver** (they
-appear under "Other"). Universal binaries (arm64 + x86_64), ad-hoc signed,
-macOS 11+.
+After `make install`, pick them in **System Settings → Wallpaper → Screen
+Saver** (macOS 26) or **System Settings → Screen Saver** (earlier). Universal
+binaries (arm64 + x86_64), ad-hoc signed, macOS 11+.
+
+## After Dork.app — the 1996 control panel
+
+`make app` builds `build/AfterDork.app`, a self-contained retro control panel
+with all seven `.saver` bundles inside. Pick a module from the list, watch it
+in the live preview monitor, tune its options (flock size, growth speed, gas
+molecules, echo depth, reef population...), and hit **Set Screen Saver** — the
+app installs the module into `~/Library/Screen Savers`, writes the settings
+where the sandboxed screen saver engine can read them, selects it as your
+screen saver, and kicks the wallpaper machinery so macOS notices. Hand
+someone the .app and they have the whole collection.
 
 ## Layout
 

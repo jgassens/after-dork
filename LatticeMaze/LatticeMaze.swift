@@ -41,6 +41,7 @@ public final class LatticeMazeView: ScreenSaverView {
     private var molecules: [Molecule] = []
     // Gas guests diffusing through the corridors
     private var gases: [Gas] = []
+    private var speedMul = 1.0
 
     // Framebuffer
     private var iw = 420, ih = 236
@@ -77,13 +78,15 @@ public final class LatticeMazeView: ScreenSaverView {
         generateMaze()
         buildWallTextures()
         buildSprites()
+        speedMul = max(0.3, min(3, AfterDork.value("LatticeMaze", "speed", 1.0)))
+        let gasN = max(0, min(60, Int(AfterDork.value("LatticeMaze", "gas", 24))))
         posX = 1.5; posY = 1.5
         angle = 0
         molecules = []
         for _ in 0..<5 { placeMolecule() }
         gases = []
         let open = openCells()
-        for _ in 0..<(isPreview ? 10 : 24) {
+        for _ in 0..<(isPreview ? min(10, gasN) : gasN) {
             guard let c = open.randomElement() else { break }
             let a = Double.random(in: 0...6.28)
             gases.append(Gas(x: Double(c.0) + Double.random(in: 0.3...0.7),
@@ -543,10 +546,11 @@ public final class LatticeMazeView: ScreenSaverView {
             while diff > .pi { diff -= 2 * .pi }
             while diff < -.pi { diff += 2 * .pi }
             if abs(diff) > 0.05 {
-                angle += max(-0.085, min(0.085, diff))  // turn in place, classic style
+                let turnCap = 0.085 * speedMul
+                angle += max(-turnCap, min(turnCap, diff))  // turn in place, classic style
             } else {
                 angle = desired
-                let step = min(0.052, distance)
+                let step = min(0.052 * speedMul, distance)
                 posX += cos(angle) * step
                 posY += sin(angle) * step
             }

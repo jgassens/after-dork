@@ -39,7 +39,7 @@ public final class MystifyPolymersView: ScreenSaverView {
     private var benzeneHue: CGFloat = 0.55
     private var benzeneRot: CGFloat = 0
     private var t: CGFloat = 0
-    private let historyLen = 18
+    private var historyLen = 18
 
     private let navy = CGColor(red: 0.18, green: 0.24, blue: 0.62, alpha: 1)
     private let navyDim = CGColor(red: 0.11, green: 0.15, blue: 0.42, alpha: 1)
@@ -63,7 +63,9 @@ public final class MystifyPolymersView: ScreenSaverView {
     private func setup() {
         let r = bounds.insetBy(dx: 10, dy: 10)
         let w = max(r.width, 600), h = max(r.height, 400)
-        let speed: CGFloat = isPreview ? 2.6 : 5.0
+        historyLen = max(4, min(30, Int(AfterDork.value("MystifyPolymers", "echo", 18))))
+        let speedMul = CGFloat(max(0.3, min(3, AfterDork.value("MystifyPolymers", "speed", 1.0))))
+        let speed: CGFloat = (isPreview ? 2.6 : 5.0) * speedMul
         // Two rigid tiles: a triangle (3-point star tile) and a quad (cross tile).
         polys = [3, 4].enumerated().map { (i, count) in
             let pts = (0..<count).map { _ -> Bouncer in

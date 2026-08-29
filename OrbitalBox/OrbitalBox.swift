@@ -27,7 +27,8 @@ public final class OrbitalBoxView: ScreenSaverView {
     ]
 
     private let nTheta = 18, nPhi = 26
-    private let holdFrames = 80, morphFrames = 66
+    private var holdFrames = 80, morphFrames = 66
+    private var spinMul = 1.0
 
     private var tick = 0
     private var shapeIdx = 0
@@ -50,17 +51,26 @@ public final class OrbitalBoxView: ScreenSaverView {
         animationTimeInterval = 1.0 / 30.0
         cx = max(bounds.midX, 200)
         cy = max(bounds.midY, 150)
+        configureFromSettings()
     }
 
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
         animationTimeInterval = 1.0 / 30.0
+        configureFromSettings()
+    }
+
+    private func configureFromSettings() {
+        spinMul = max(0.2, min(3, AfterDork.value("OrbitalBox", "spin", 1.0)))
+        let morphMul = max(0.3, min(3, AfterDork.value("OrbitalBox", "morph", 1.0)))
+        holdFrames = max(12, Int(80.0 / morphMul))
+        morphFrames = max(20, Int(66.0 / morphMul))
     }
 
     public override func animateOneFrame() {
         tick += 1
-        rotX += 0.011
-        rotY += 0.019
+        rotX += 0.011 * spinMul
+        rotY += 0.019 * spinMul
         let w = max(bounds.width, 640), h = max(bounds.height, 400)
         let R = min(w, h) * 0.29
         cx += vx; cy += vy

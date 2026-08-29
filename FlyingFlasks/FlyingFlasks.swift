@@ -42,6 +42,7 @@ public final class FlyingFlasksView: ScreenSaverView {
     private var stars: [Star] = []
     private var flyers: [Flyer] = []
     private var drops: [Drop] = []
+    private var dripsEnabled = true
     private var t: CGFloat = 0
     // Classic toaster heading: down and to the left.
     private let flightDir = CGVector(dx: -0.868, dy: -0.496)
@@ -73,7 +74,9 @@ public final class FlyingFlasksView: ScreenSaverView {
                  phase: rnd(0...6.28),
                  rate: rnd(0.6...2.4))
         }
-        let count = isPreview ? 8 : 15
+        let flock = Int(AfterDork.value("FlyingFlasks", "flock", 15))
+        dripsEnabled = AfterDork.flag("FlyingFlasks", "drips", true)
+        let count = isPreview ? min(8, flock) : max(4, min(40, flock))
         flyers = (0..<count).map { _ in makeFlyer(initial: true) }
         flyers.sort { $0.scale < $1.scale }
     }
@@ -131,7 +134,7 @@ public final class FlyingFlasksView: ScreenSaverView {
             // Open glassware sloshes: a drop escapes the mouth now and then.
             // NMR tubes are capped and drip nothing, obviously.
             let f = flyers[i]
-            if f.kind != .nmrTube, drops.count < 60, CGFloat.random(in: 0...1) < 0.02 {
+            if dripsEnabled, f.kind != .nmrTube, drops.count < 60, CGFloat.random(in: 0...1) < 0.02 {
                 let v2 = f.speed * (0.5 + f.scale)
                 drops.append(Drop(x: f.x + rnd(-4...4) * f.scale,
                                   y: f.y + 31 * f.scale,

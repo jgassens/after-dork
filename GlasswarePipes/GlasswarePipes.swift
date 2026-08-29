@@ -110,7 +110,12 @@ public final class GlasswarePipesView: ScreenSaverView {
     }
     private func world(_ c: SIMD3<Int>) -> V3 { V3(Double(c.x), Double(c.y), Double(c.z)) }
 
+    private var speedMul = 1.0
+    private var alembicsOn = true
+
     private func resetScene() {
+        speedMul = max(0.3, min(3, AfterDork.value("GlasswarePipes", "speed", 1.0)))
+        alembicsOn = AfterDork.flag("GlasswarePipes", "alembics", true)
         occupied.removeAll()
         items.removeAll()
         pipes.removeAll()
@@ -160,7 +165,7 @@ public final class GlasswarePipesView: ScreenSaverView {
             return
         }
         for i in pipes.indices where pipes[i].alive {
-            pipes[i].progress += 0.2
+            pipes[i].progress += 0.2 * speedMul
             if pipes[i].progress >= 1 {
                 pipes[i].progress = 0
                 finishSegment(&pipes[i])
@@ -186,7 +191,7 @@ public final class GlasswarePipesView: ScreenSaverView {
         guard let nd = chooseDir(from: to, current: p.dir) else {
             // Stuck: retire the pipe — half the time it ends in an alembic
             // (the alchemists were here first), otherwise a ball-joint cap.
-            if rnd(0...1) < 0.5 {
+            if alembicsOn && rnd(0...1) < 0.5 {
                 addAlembic(at: world(to), color: p.color)
             } else {
                 addBall(at: world(to), color: p.color, r: 0.30, clamped: false)
@@ -195,7 +200,7 @@ public final class GlasswarePipesView: ScreenSaverView {
             deadStarts += 1
             return
         }
-        if rnd(0...1) < 0.03 {
+        if alembicsOn && rnd(0...1) < 0.03 {
             // Deliberate retirement: the run ends in an alembic.
             addAlembic(at: world(to), color: p.color)
             p.alive = false

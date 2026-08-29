@@ -16,6 +16,13 @@ private struct Molecule {
     var phase: Double
 }
 
+private struct Gas {
+    var x: Double, y: Double
+    var vx: Double, vy: Double
+    var type: Int  // 0 CO2, 1 N2, 2 H2, 3 CH4
+    var phase: Double
+}
+
 @objc(LatticeMazeView)
 public final class LatticeMazeView: ScreenSaverView {
 
@@ -32,6 +39,8 @@ public final class LatticeMazeView: ScreenSaverView {
 
     // Molecules (the smiley stand-ins)
     private var molecules: [Molecule] = []
+    // Gas guests diffusing through the corridors
+    private var gases: [Gas] = []
 
     // Framebuffer
     private var iw = 420, ih = 236
@@ -44,6 +53,7 @@ public final class LatticeMazeView: ScreenSaverView {
     private var wallTexA: [UInt32] = []
     private var wallTexB: [UInt32] = []
     private var spriteFrames: [[[UInt32]]] = []  // [type][frame][pixels], ARGB
+    private var gasFrames: [[[UInt32]]] = []     // [type][frame][pixels], ARGB
     private let spriteFrameCount = 16
 
     public override init?(frame: NSRect, isPreview: Bool) {
@@ -71,6 +81,17 @@ public final class LatticeMazeView: ScreenSaverView {
         angle = 0
         molecules = []
         for _ in 0..<5 { placeMolecule() }
+        gases = []
+        let open = openCells()
+        for _ in 0..<(isPreview ? 10 : 24) {
+            guard let c = open.randomElement() else { break }
+            let a = Double.random(in: 0...6.28)
+            gases.append(Gas(x: Double(c.0) + Double.random(in: 0.3...0.7),
+                             y: Double(c.1) + Double.random(in: 0.3...0.7),
+                             vx: cos(a) * 0.009, vy: sin(a) * 0.009,
+                             type: Int.random(in: 0..<4),
+                             phase: Double.random(in: 0...6.28)))
+        }
     }
 
     // MARK: - Maze generation (recursive backtracker)
@@ -341,7 +362,54 @@ public final class LatticeMazeView: ScreenSaverView {
         return Array(UnsafeBufferPointer(start: ptr, count: size * size))
     }
 
+    /// CPK-style overlapping-ball atom.
+    private func cpkBall(_ ctx: CGContext, at p: CGPoint, r: CGFloat,
+                         _ red: CGFloat, _ green: CGFloat, _ blue: CGFloat) {
+        ctx.setFillColor(CGColor(red: red * 0.5, green: green * 0.5,
+                                 blue: blue * 0.5, alpha: 1))
+        ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
+        ctx.setFillColor(CGColor(red: red, green: green, blue: blue, alpha: 1))
+        let r2 = r * 0.78
+        ctx.fillEllipse(in: CGRect(x: p.x - r2 - r * 0.08, y: p.y - r2 + r * 0.08,
+                                   width: 2 * r2, height: 2 * r2))
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.65))
+        let hr = r * 0.18
+        ctx.fillEllipse(in: CGRect(x: p.x - r * 0.32 - hr, y: p.y + r * 0.32 - hr,
+                                   width: 2 * hr, height: 2 * hr))
+    }
+
+    private func buildGasSprites() {
+        gasFrames = (0..<4).map { type in
+            (0..<spriteFrameCount).map { f in
+                let ctx = makeSpriteContext()
+                ctx.translateBy(x: CGFloat(ts) / 2, y: CGFloat(ts) / 2)
+                ctx.rotate(by: CGFloat(f) / CGFloat(spriteFrameCount) * 2 * .pi)
+                switch type {
+                case 0:  // CO2: O=C=O
+                    cpkBall(ctx, at: CGPoint(x: -19, y: 0), r: 13, 0.92, 0.25, 0.2)
+                    cpkBall(ctx, at: CGPoint(x: 19, y: 0), r: 13, 0.92, 0.25, 0.2)
+                    cpkBall(ctx, at: .zero, r: 12, 0.45, 0.45, 0.45)
+                case 1:  // N2
+                    cpkBall(ctx, at: CGPoint(x: -10, y: 0), r: 13, 0.25, 0.35, 0.92)
+                    cpkBall(ctx, at: CGPoint(x: 10, y: 0), r: 13, 0.25, 0.35, 0.92)
+                case 2:  // H2
+                    cpkBall(ctx, at: CGPoint(x: -8, y: 0), r: 10, 0.92, 0.92, 0.95)
+                    cpkBall(ctx, at: CGPoint(x: 8, y: 0), r: 10, 0.92, 0.92, 0.95)
+                default:  // CH4
+                    for k in 0..<4 {
+                        let a = CGFloat(k) * .pi / 2 + .pi / 4
+                        cpkBall(ctx, at: CGPoint(x: 17 * cos(a), y: 17 * sin(a)),
+                                r: 9, 0.92, 0.92, 0.95)
+                    }
+                    cpkBall(ctx, at: .zero, r: 13, 0.45, 0.45, 0.45)
+                }
+                return readSprite(ctx)
+            }
+        }
+    }
+
     private func buildSprites() {
+        buildGasSprites()
         spriteFrames = (0..<3).map { type in
             (0..<spriteFrameCount).map { f in
                 let ctx = makeSpriteContext()
@@ -496,6 +564,33 @@ public final class LatticeMazeView: ScreenSaverView {
             }
         }
         for i in molecules.indices { molecules[i].phase += 0.09 }
+        // Gas guests: Brownian tumble down the corridors, bouncing off walls.
+        for i in gases.indices {
+            gases[i].phase += 0.06
+            let turn = Double.random(in: -0.09...0.09)
+            let (vx, vy) = (gases[i].vx, gases[i].vy)
+            gases[i].vx = vx * cos(turn) - vy * sin(turn)
+            gases[i].vy = vx * sin(turn) + vy * cos(turn)
+            let nx = gases[i].x + gases[i].vx
+            let ny = gases[i].y + gases[i].vy
+            let margin = 0.18
+            func blocked(_ px: Double, _ py: Double) -> Bool {
+                let cx = Int(px), cy = Int(py)
+                if cx < 0 || cx >= mw || cy < 0 || cy >= mh { return true }
+                if map[cy][cx] == 1 { return true }
+                // Keep a margin off the walls so sprites don't clip into them
+                let fx = px - Double(cx), fy = py - Double(cy)
+                if fx < margin && cx > 0 && map[cy][cx - 1] == 1 { return true }
+                if fx > 1 - margin && cx < mw - 1 && map[cy][cx + 1] == 1 { return true }
+                if fy < margin && cy > 0 && map[cy - 1][cx] == 1 { return true }
+                if fy > 1 - margin && cy < mh - 1 && map[cy + 1][cx] == 1 { return true }
+                return false
+            }
+            if blocked(nx, gases[i].y) { gases[i].vx = -gases[i].vx }
+            if blocked(gases[i].x, ny) { gases[i].vy = -gases[i].vy }
+            gases[i].x += gases[i].vx
+            gases[i].y += gases[i].vy
+        }
         render()
         needsDisplay = true
     }
@@ -577,7 +672,7 @@ public final class LatticeMazeView: ScreenSaverView {
                 var wallX = side == 0 ? posY + perpDist * rayY : posX + perpDist * rayX
                 wallX -= wallX.rounded(.down)
                 var texX = Int(wallX * Double(wts))
-                if (side == 0 && rayX > 0) || (side == 1 && rayY > 0) { texX = wts - texX - 1 }
+                if (side == 0 && rayX < 0) || (side == 1 && rayY > 0) { texX = wts - texX - 1 }
                 if texX < 0 { texX = 0 }
                 if texX >= wts { texX = wts - 1 }
                 // Whole neighborhoods share a framework, so ligand chains
@@ -602,26 +697,47 @@ public final class LatticeMazeView: ScreenSaverView {
                 }
             }
 
-            // Sprites, far to near
-            let order = molecules.sorted {
-                let da = pow(Double($0.cx) + 0.5 - posX, 2) + pow(Double($0.cy) + 0.5 - posY, 2)
-                let db = pow(Double($1.cx) + 0.5 - posX, 2) + pow(Double($1.cy) + 0.5 - posY, 2)
-                return da > db
+            // Sprites, far to near: big solvent molecules and the small gas
+            // guests diffusing through the pores.
+            struct SpriteItem {
+                var x: Double, y: Double
+                var pix: [UInt32]
+                var sizeMul: Double
+                var bobAmp: Double, bobPhase: Double
+            }
+            var spriteItems: [SpriteItem] = []
+            for m in molecules {
+                let frameIdx = ((Int(m.phase * 3) % spriteFrameCount)
+                    + spriteFrameCount) % spriteFrameCount
+                spriteItems.append(SpriteItem(x: Double(m.cx) + 0.5, y: Double(m.cy) + 0.5,
+                                              pix: spriteFrames[m.type][frameIdx],
+                                              sizeMul: 0.62,
+                                              bobAmp: 0.05, bobPhase: m.phase * 0.7))
+            }
+            for g in gases {
+                let frameIdx = ((Int(g.phase * 2) % spriteFrameCount)
+                    + spriteFrameCount) % spriteFrameCount
+                spriteItems.append(SpriteItem(x: g.x, y: g.y,
+                                              pix: gasFrames[g.type][frameIdx],
+                                              sizeMul: 0.17,
+                                              bobAmp: 0.09, bobPhase: g.phase * 1.3))
+            }
+            spriteItems.sort {
+                pow($0.x - posX, 2) + pow($0.y - posY, 2)
+                    > pow($1.x - posX, 2) + pow($1.y - posY, 2)
             }
             let invDet = 1.0 / (planeX * dirY - dirX * planeY)
-            for m in order {
-                let relX = Double(m.cx) + 0.5 - posX
-                let relY = Double(m.cy) + 0.5 - posY
+            for m in spriteItems {
+                let relX = m.x - posX
+                let relY = m.y - posY
                 let transX = invDet * (dirY * relX - dirX * relY)
                 let transY = invDet * (-planeY * relX + planeX * relY)
                 if transY <= 0.15 { continue }
                 let screenX = Int(Double(w) / 2 * (1 + transX / transY))
-                let size = abs(Int(Double(h) * 0.62 / transY))
+                let size = abs(Int(Double(h) * m.sizeMul / transY))
                 if size < 2 { continue }
-                let frameIdx = ((Int(m.phase * 3) % spriteFrameCount)
-                    + spriteFrameCount) % spriteFrameCount
-                let sprite = spriteFrames[m.type][frameIdx]
-                let bob = Int(Double(h) * 0.05 / transY * sin(m.phase * 0.7))
+                let sprite = m.pix
+                let bob = Int(Double(h) * m.bobAmp / transY * sin(m.bobPhase))
                 let startY = max(0, halfH - size / 2 + bob)
                 let endY = min(h - 1, halfH + size / 2 + bob)
                 let startX = max(0, screenX - size / 2)

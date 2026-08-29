@@ -9,7 +9,7 @@ no Xcode project.
 |---|---|---|
 | **Flying Flasks** | After Dark "Flying Toasters" | Winged Erlenmeyers flap across a starfield; NMR tubes drift by as the toast; rare round-bottom flask on bat wings |
 | **Glassware Pipes** | Windows "3D Pipes" | Glass tubing grows joint by joint with ball joints, frosted ground-glass collars, and condenser coils, until the hood is full and it flushes |
-| **Lattice Maze** | Windows 95 "3D Maze" | First-person crawl through a MOF: metal nodes, strut walls, checkerboard floor; bumping into a spinning solvent molecule (benzene, water, C60) flips you upside down |
+| **Lattice Maze** | Windows 95 "3D Maze" | First-person crawl through a MOF: metal nodes, strut walls, checkerboard floor; gas guests (CO2, N2, H2, CH4) diffuse through the corridors, and bumping into a spinning solvent molecule (benzene, water, C60) flips you upside down |
 | **Stoddart Reef** | After Dark "Fish!" | An aquarium of mechanically interlocked molecules: bistable rotaxanes with shuttling blue boxes, a [2]catenane, Borromean rings, a crown-ether jellyfish (K+ aboard), a ferrocene crab, a trefoil knot, a daisy-chain eel, a cucurbituril (guest included), PEG seaweed, and a MOF crystal castle |
 | **Orbital Box** | Windows "3D Flower Box" | The morphing cube morphs through atomic orbital geometries instead — 1s, 2p, 3dz2, 3dx2-y2, 4fz3 — chunky low-poly, six saturated face colors, glossy, bouncing |
 | **SMILES Rain** | The Matrix digital rain | Falling green glyph columns that are real SMILES strings of famous molecules (caffeine, aspirin, TNT, penicillin G, cubane...), with periodic name reveals |

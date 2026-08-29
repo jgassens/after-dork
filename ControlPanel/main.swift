@@ -554,17 +554,62 @@ setButton.action = {
     statusLabel.stringValue = "\u{2713} \(module.display) is now your screen saver."
 }
 
-demoButton.action = {
-    // Demo whatever is highlighted in the list, not whatever was last set.
-    let module = catalog[currentIdx]
-    installAndSelectLegacy(module)
-    statusLabel.stringValue = "Demonstrating \(module.display)\u{2026} (move the mouse to stop)"
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        p.arguments = ["/System/Library/CoreServices/ScreenSaverEngine.app"]
-        try? p.run()
+// Demo runs the module full-screen from inside this app — the After Dark
+// way — rather than trusting ScreenSaverEngine, which on Tahoe consults the
+// wallpaper store and happily ignores the module we just selected.
+final class DemoWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+}
+
+var demoWindows: [NSWindow] = []
+var demoViews: [ScreenSaverView] = []
+var demoMonitor: Any?
+
+func endDemo() {
+    if let m = demoMonitor {
+        NSEvent.removeMonitor(m)
+        demoMonitor = nil
     }
+    demoViews = []
+    for w in demoWindows { w.orderOut(nil) }
+    demoWindows = []
+    NSCursor.unhide()
+    statusLabel.stringValue = "Demo ended."
+}
+
+func startDemo(_ module: Module) {
+    AfterDork.write(settings)  // the demo honors the current option values
+    for screen in NSScreen.screens {
+        let w = DemoWindow(contentRect: screen.frame, styleMask: .borderless,
+                           backing: .buffered, defer: false)
+        w.level = .screenSaver
+        w.backgroundColor = .black
+        w.isReleasedWhenClosed = false
+        w.acceptsMouseMovedEvents = true
+        let v = module.make(NSRect(origin: .zero, size: screen.frame.size), false)
+        w.contentView = v
+        v.startAnimation()
+        w.makeKeyAndOrderFront(nil)
+        demoWindows.append(w)
+        demoViews.append(v)
+    }
+    NSCursor.hide()
+    let started = Date()
+    demoMonitor = NSEvent.addLocalMonitorForEvents(
+        matching: [.mouseMoved, .keyDown, .leftMouseDown, .rightMouseDown,
+                   .scrollWheel]) { ev in
+        if Date().timeIntervalSince(started) > 0.7 {
+            endDemo()
+            return nil
+        }
+        return ev
+    }
+}
+
+demoButton.action = {
+    let module = catalog[currentIdx]
+    statusLabel.stringValue = "Demonstrating \(module.display)\u{2026}"
+    startDemo(module)
 }
 
 rebuildOptions()
@@ -575,6 +620,7 @@ app.activate(ignoringOtherApps: true)
 
 let timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
     previewView?.animateOneFrame()
+    for v in demoViews { v.animateOneFrame() }
 }
 RunLoop.main.add(timer, forMode: .common)
 

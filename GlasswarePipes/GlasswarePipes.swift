@@ -191,8 +191,8 @@ public final class GlasswarePipesView: ScreenSaverView {
             return
         }
         if nd != p.dir {
-            // Elbow ball joint, half of them held by a pinch clamp.
-            addBall(at: world(to), color: p.color, r: 0.34, clamped: rnd(0...1) < 0.5)
+            // Elbow ball joint, some held by a pinch clamp.
+            addBall(at: world(to), color: p.color, r: 0.34, clamped: rnd(0...1) < 0.3)
         } else if rnd(0...1) < 0.16 {
             addCollar(at: world(to), dir: nd)  // ground-glass joint on a straight run
         }
@@ -395,25 +395,46 @@ public final class GlasswarePipesView: ScreenSaverView {
         ctx.strokePath()
     }
 
-    /// Metal pinch clamp gripping a ball joint: two jaws plus a thumb screw.
+    /// Metal pinch clamp gripping a ball joint: a horseshoe jaw hugging the
+    /// lower half of the ball, with a screw stem and wing nut attached below.
     private func drawPinchClamp(_ ctx: CGContext, at p: CGPoint, r: Double) {
-        let metal = CGColor(red: 0.72, green: 0.74, blue: 0.78, alpha: 1)
-        let lw = max(r * 0.22, 1.5)
+        let metal = CGColor(red: 0.60, green: 0.63, blue: 0.69, alpha: 1)
+        let jr = r * 1.02
+        let lw = max(r * 0.30, 2.0)
+        ctx.setLineCap(.round)
+        // Jaw wraps the bottom of the ball, opening upward for the tubing.
         ctx.setStrokeColor(metal)
         ctx.setLineWidth(lw)
-        ctx.setLineCap(.round)
-        let jr = r * 1.22
-        for (a0, a1) in [(2.0, 4.3), (-1.15, 1.15)] {
-            ctx.addArc(center: p, radius: jr, startAngle: a0, endAngle: a1, clockwise: false)
+        ctx.addArc(center: p, radius: jr,
+                   startAngle: .pi * 1.13, endAngle: .pi * 1.87, clockwise: false)
+        ctx.strokePath()
+        // Gripping tabs at the jaw tips
+        for a in [Double.pi * 1.13, Double.pi * 1.87] {
+            let tip = CGPoint(x: p.x + jr * cos(a), y: p.y + jr * sin(a))
+            ctx.move(to: tip)
+            ctx.addLine(to: CGPoint(x: p.x + (jr + r * 0.34) * cos(a),
+                                    y: p.y + (jr + r * 0.34) * sin(a)))
             ctx.strokePath()
         }
-        // Thumb screw hanging below
-        ctx.move(to: CGPoint(x: p.x, y: p.y - jr))
-        ctx.addLine(to: CGPoint(x: p.x, y: p.y - jr - r * 0.8))
+        // Screw stem straight off the jaw, then a wing nut.
+        let jawBottom = p.y - jr
+        ctx.setLineWidth(max(r * 0.18, 1.4))
+        ctx.move(to: CGPoint(x: p.x, y: jawBottom))
+        ctx.addLine(to: CGPoint(x: p.x, y: jawBottom - r * 0.55))
         ctx.strokePath()
+        let nutY = jawBottom - r * 0.62
         ctx.setFillColor(metal)
-        ctx.fillEllipse(in: CGRect(x: p.x - r * 0.34, y: p.y - jr - r * 1.1,
-                                   width: r * 0.68, height: r * 0.5))
+        for sx in [-1.0, 1.0] {
+            ctx.fillEllipse(in: CGRect(x: p.x + sx * r * 0.08 - (sx < 0 ? r * 0.42 : 0),
+                                       y: nutY - r * 0.16,
+                                       width: r * 0.42, height: r * 0.32))
+        }
+        // Specular hint on the jaw
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.5))
+        ctx.setLineWidth(lw * 0.3)
+        ctx.addArc(center: p, radius: jr,
+                   startAngle: .pi * 1.35, endAngle: .pi * 1.65, clockwise: false)
+        ctx.strokePath()
     }
 
     public override var hasConfigureSheet: Bool { false }

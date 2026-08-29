@@ -32,6 +32,19 @@ $(foreach s,$(SAVERS),$(eval $(call SAVER_template,$(s))))
 
 previews: $(foreach s,$(SAVERS),preview-$(s))
 
+APP = $(BUILD)/AfterHoodPreview.app
+
+app: $(APP)
+
+$(APP): $(foreach s,$(SAVERS),$(s)/$(s).swift) AppPreview/main.swift AppPreview/Info.plist
+	mkdir -p $(APP)/Contents/MacOS
+	cp AppPreview/Info.plist $(APP)/Contents/Info.plist
+	swiftc -O -target arm64-apple-macos$(MIN) -module-name AfterHoodPreview \
+	    -o $(APP)/Contents/MacOS/AfterHoodPreview \
+	    $(foreach s,$(SAVERS),$(s)/$(s).swift) AppPreview/main.swift $(FRAMEWORKS)
+	codesign --force --sign - $(APP)
+	touch $(APP)
+
 install: all
 	mkdir -p "$(HOME)/Library/Screen Savers"
 	for s in $(SAVERS); do \

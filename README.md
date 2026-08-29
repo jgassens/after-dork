@@ -12,6 +12,7 @@ no Xcode project.
 | **Lattice Maze** | Windows 95 "3D Maze" | First-person crawl through a MOF: metal nodes, strut walls, checkerboard floor; bumping into a spinning solvent molecule (benzene, water, C60) flips you upside down |
 | **Stoddart Reef** | After Dark "Fish!" | An aquarium of mechanically interlocked molecules: bistable rotaxanes with shuttling blue boxes, a [2]catenane, Borromean rings, a crown-ether jellyfish (K+ aboard), a ferrocene crab, a trefoil knot, a daisy-chain eel, a cucurbituril (guest included), PEG seaweed, and a MOF crystal castle |
 | **Orbital Box** | Windows "3D Flower Box" | The morphing cube morphs through atomic orbital geometries instead — 1s, 2p, 3dz2, 3dx2-y2, 4fz3 — chunky low-poly, six saturated face colors, glossy, bouncing |
+| **SMILES Rain** | The Matrix digital rain | Falling green glyph columns that are real SMILES strings of famous molecules (caffeine, aspirin, TNT, penicillin G, cubane...), with periodic name reveals |
 | **Mystify Origami** | Windows "Mystify" | Rigid bouncing polygons rendered as DNA nanostructure tiles — straight bead-chain duplexes with sticky ends and green connector loops — trailing deep wireframe echoes, plus a benzene ring bouncing DVD-logo style |
 
 ## Build & install

@@ -1,4 +1,4 @@
-SAVERS = FlyingFlasks GlasswarePipes LatticeMaze MystifyPolymers StoddartReef OrbitalBox
+SAVERS = FlyingFlasks GlasswarePipes LatticeMaze MystifyPolymers StoddartReef OrbitalBox SmilesRain
 MIN = 11.0
 BUILD = build
 FRAMEWORKS = -framework ScreenSaver -framework AppKit

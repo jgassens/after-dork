@@ -80,6 +80,12 @@ public final class GlasswarePipesView: ScreenSaverView {
         (0.55, 0.86, 0.62),  // green
         (0.9, 0.55, 0.75),   // rhodamine pink
     ]
+    private let keckColors: [CGColor] = [
+        CGColor(red: 0.15, green: 0.45, blue: 0.95, alpha: 1),  // keck blue
+        CGColor(red: 0.2, green: 0.8, blue: 0.35, alpha: 1),    // keck green
+        CGColor(red: 1.0, green: 0.8, blue: 0.15, alpha: 1),    // keck yellow
+        CGColor(red: 0.95, green: 0.45, blue: 0.15, alpha: 1),  // keck orange
+    ]
     private let dirs: [SIMD3<Int>] = [
         SIMD3(1, 0, 0), SIMD3(-1, 0, 0),
         SIMD3(0, 1, 0), SIMD3(0, -1, 0),
@@ -179,14 +185,15 @@ public final class GlasswarePipesView: ScreenSaverView {
         p.head = to
         guard let nd = chooseDir(from: to, current: p.dir) else {
             // Stuck: cap it with a ball joint and retire the pipe.
-            addBall(at: world(to), color: p.color, r: 0.30)
+            addBall(at: world(to), color: p.color, r: 0.30, clamped: false)
             p.alive = false
             deadStarts += 1
             return
         }
         if nd != p.dir {
-            addBall(at: world(to), color: p.color, r: 0.34)  // elbow ball joint
-        } else if rnd(0...1) < 0.10 {
+            // Elbow ball joint, half of them held by a pinch clamp.
+            addBall(at: world(to), color: p.color, r: 0.34, clamped: rnd(0...1) < 0.5)
+        } else if rnd(0...1) < 0.16 {
             addCollar(at: world(to), dir: nd)  // ground-glass joint on a straight run
         }
         p.dir = nd
@@ -221,9 +228,9 @@ public final class GlasswarePipesView: ScreenSaverView {
         needSort = true
     }
 
-    private func addBall(at p: V3, color: Int, r: Double) {
+    private func addBall(at p: V3, color: Int, r: Double, clamped: Bool) {
         let (pt, z) = camera.project(p)
-        items.append(DrawItem(kind: 1, depth: z - 0.01, p1: pt,
+        items.append(DrawItem(kind: clamped ? 4 : 1, depth: z - 0.01, p1: pt,
                               w: r * 2 * camera.fl / max(z, 0.6), color: color))
         needSort = true
     }
@@ -233,8 +240,10 @@ public final class GlasswarePipesView: ScreenSaverView {
         let (p1, z1) = camera.project(p - d)
         let (p2, z2) = camera.project(p + d)
         let zm = (z1 + z2) / 2 - 0.01
+        // color doubles as the Keck clip color for collars
         items.append(DrawItem(kind: 2, depth: zm, p1: p1, p2: p2,
-                              w: 0.42 * camera.fl / max(zm, 0.6)))
+                              w: 0.42 * camera.fl / max(zm, 0.6),
+                              color: Int.random(in: 0..<keckColors.count)))
         needSort = true
     }
 
@@ -306,7 +315,7 @@ public final class GlasswarePipesView: ScreenSaverView {
         switch item.kind {
         case 0:
             drawCapsule(ctx, item.p1, item.p2, w: item.w, color: item.color, depth: item.depth)
-        case 1:
+        case 1, 4:
             let r = item.w / 2
             let rect = CGRect(x: item.p1.x - r, y: item.p1.y - r, width: 2 * r, height: 2 * r)
             ctx.setFillColor(shade(item.color, 0.55, alpha: 1, depth: item.depth))
@@ -319,6 +328,7 @@ public final class GlasswarePipesView: ScreenSaverView {
             ctx.fillEllipse(in: CGRect(x: item.p1.x - r * 0.38 - hr,
                                        y: item.p1.y + r * 0.38 - hr,
                                        width: 2 * hr, height: 2 * hr))
+            if item.kind == 4, r > 5 { drawPinchClamp(ctx, at: item.p1, r: r) }
         case 2:
             // Frosted ground-glass collar
             ctx.setStrokeColor(CGColor(red: 0.92, green: 0.94, blue: 0.96, alpha: 0.85))
@@ -327,6 +337,7 @@ public final class GlasswarePipesView: ScreenSaverView {
             ctx.setStrokeColor(CGColor(red: 0.6, green: 0.64, blue: 0.7, alpha: 0.8))
             ctx.setLineWidth(item.w * 0.15)
             ctx.move(to: item.p1); ctx.addLine(to: item.p2); ctx.strokePath()
+            drawKeckClip(ctx, item)
         case 3:
             // Condenser: outer glass envelope, coil, inner tube.
             ctx.setStrokeColor(CGColor(red: 0.75, green: 0.85, blue: 0.95, alpha: 0.28))
@@ -344,6 +355,65 @@ public final class GlasswarePipesView: ScreenSaverView {
         default:
             break
         }
+    }
+
+    /// Colored plastic Keck clip straddling a ground-glass joint: a spine
+    /// along one side of the tube with two fork arms wrapping across it.
+    private func drawKeckClip(_ ctx: CGContext, _ item: DrawItem) {
+        let dx = item.p2.x - item.p1.x, dy = item.p2.y - item.p1.y
+        let len = max(hypot(dx, dy), 0.001)
+        guard item.w > 6 else { return }
+        let u = CGVector(dx: dx / len, dy: dy / len)
+        let v = CGVector(dx: -u.dy, dy: u.dx)
+        let pc = CGPoint(x: (item.p1.x + item.p2.x) / 2, y: (item.p1.y + item.p2.y) / 2)
+        let r = item.w * 0.62
+        let d = len * 0.58
+        let lw = max(item.w * 0.22, 1.5)
+        let color = keckColors[item.color % keckColors.count]
+        func pt(_ alongAxis: Double, _ acrossAxis: Double) -> CGPoint {
+            CGPoint(x: pc.x + u.dx * alongAxis + v.dx * acrossAxis,
+                    y: pc.y + u.dy * alongAxis + v.dy * acrossAxis)
+        }
+        ctx.setStrokeColor(color)
+        ctx.setLineWidth(lw)
+        ctx.setLineCap(.round)
+        // Spine along one side
+        ctx.move(to: pt(-d, r))
+        ctx.addLine(to: pt(d, r))
+        ctx.strokePath()
+        // Fork arms wrapping across the joint
+        for s in [-d, d] {
+            ctx.move(to: pt(s, r))
+            ctx.addLine(to: pt(s * 1.12, -r * 0.95))
+            ctx.strokePath()
+        }
+        // Highlight on the spine
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.55))
+        ctx.setLineWidth(lw * 0.35)
+        ctx.move(to: pt(-d * 0.7, r * 1.12))
+        ctx.addLine(to: pt(d * 0.7, r * 1.12))
+        ctx.strokePath()
+    }
+
+    /// Metal pinch clamp gripping a ball joint: two jaws plus a thumb screw.
+    private func drawPinchClamp(_ ctx: CGContext, at p: CGPoint, r: Double) {
+        let metal = CGColor(red: 0.72, green: 0.74, blue: 0.78, alpha: 1)
+        let lw = max(r * 0.22, 1.5)
+        ctx.setStrokeColor(metal)
+        ctx.setLineWidth(lw)
+        ctx.setLineCap(.round)
+        let jr = r * 1.22
+        for (a0, a1) in [(2.0, 4.3), (-1.15, 1.15)] {
+            ctx.addArc(center: p, radius: jr, startAngle: a0, endAngle: a1, clockwise: false)
+            ctx.strokePath()
+        }
+        // Thumb screw hanging below
+        ctx.move(to: CGPoint(x: p.x, y: p.y - jr))
+        ctx.addLine(to: CGPoint(x: p.x, y: p.y - jr - r * 0.8))
+        ctx.strokePath()
+        ctx.setFillColor(metal)
+        ctx.fillEllipse(in: CGRect(x: p.x - r * 0.34, y: p.y - jr - r * 1.1,
+                                   width: r * 0.68, height: r * 0.5))
     }
 
     public override var hasConfigureSheet: Bool { false }

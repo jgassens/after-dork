@@ -126,53 +126,91 @@ public final class LatticeMazeView: ScreenSaverView {
     // MARK: - Textures
 
     private func buildWallTextures() {
-        wallTexA = makeLatticeTexture(nodeR: 200, nodeG: 110, nodeB: 60,
-                                      strutR: 60, strutG: 160, strutB: 150)
-        wallTexB = makeLatticeTexture(nodeR: 170, nodeG: 175, nodeB: 190,
-                                      strutR: 70, strutG: 110, strutB: 190)
+        wallTexA = makeLatticeTexture(style: 0,
+                                      node: (0.86, 0.48, 0.26),   // copper
+                                      strut: (0.30, 0.68, 0.62))  // teal linker
+        wallTexB = makeLatticeTexture(style: 1,
+                                      node: (0.72, 0.74, 0.80),   // zinc/silver
+                                      strut: (0.32, 0.48, 0.82))  // blue linker
     }
 
-    private func makeLatticeTexture(nodeR: Int, nodeG: Int, nodeB: Int,
-                                    strutR: Int, strutG: Int, strutB: Int) -> [UInt32] {
-        var tex = [UInt32](repeating: 0, count: ts * ts)
-        let nodes = [(0, 0), (ts, 0), (0, ts), (ts, ts), (ts / 2, ts / 2)]
-        for y in 0..<ts {
-            for x in 0..<ts {
-                // Ordered-dither dark background
-                let noise = ((x &* 7 &+ y &* 13) & 7) - 3
-                var r = 14 + noise, g = 17 + noise, b = 28 + noise
-
-                // Diagonal struts and border struts
-                let d1 = abs(x - y), d2 = abs(x + y - ts)
-                let onDiag = d1 < 3 || d2 < 3
-                let onEdge = x < 3 || x >= ts - 3 || y < 3 || y >= ts - 3
-                if onDiag || onEdge {
-                    let ridge = onDiag ? min(d1, d2) : min(x, min(y, min(ts - 1 - x, ts - 1 - y)))
-                    let bright = 1.0 - Double(ridge) * 0.22
-                    r = Int(Double(strutR) * bright)
-                    g = Int(Double(strutG) * bright)
-                    b = Int(Double(strutB) * bright)
-                }
-                // Metal nodes at corners and center
-                for (nx, ny) in nodes {
-                    let dx = Double(x - nx), dy = Double(y - ny)
-                    let dist = (dx * dx + dy * dy).squareRoot()
-                    if dist < 11 {
-                        let shade = 1.0 - dist / 15.0
-                        r = Int(Double(nodeR) * shade)
-                        g = Int(Double(nodeG) * shade)
-                        b = Int(Double(nodeB) * shade)
-                        // Specular glint offset up-left
-                        let hx = dx + 3.5, hy = dy + 3.5
-                        if hx * hx + hy * hy < 6 { r = min(r + 90, 255); g = min(g + 90, 255); b = min(b + 80, 255) }
-                        break
-                    }
-                }
-                tex[y * ts + x] = packRGB(r, g, b)
-            }
+    /// Draws one wall tile as a 3D framework cage seen down its pore: bright
+    /// front frame at the tile border, dim back frame inset toward the center,
+    /// struts receding between them. Style 0 = cubic pore, 1 = octahedral.
+    private func makeLatticeTexture(style: Int,
+                                    node: (CGFloat, CGFloat, CGFloat),
+                                    strut: (CGFloat, CGFloat, CGFloat)) -> [UInt32] {
+        let ctx = makeSpriteContext()
+        let S = CGFloat(ts)
+        ctx.setFillColor(CGColor(red: 0.045, green: 0.055, blue: 0.10, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: S, height: S))
+        // Grainy retro noise
+        for _ in 0..<160 {
+            ctx.setFillColor(CGColor(red: 0.085, green: 0.095, blue: 0.16, alpha: 1))
+            ctx.fill(CGRect(x: rndT(0...S), y: rndT(0...S), width: 1.3, height: 1.3))
         }
-        return tex
+        func line(_ a: CGPoint, _ b: CGPoint, _ w: CGFloat, _ bright: CGFloat) {
+            ctx.setStrokeColor(CGColor(red: strut.0 * bright, green: strut.1 * bright,
+                                       blue: strut.2 * bright, alpha: 1))
+            ctx.setLineWidth(w)
+            ctx.move(to: a); ctx.addLine(to: b); ctx.strokePath()
+        }
+        func ball(_ p: CGPoint, _ r: CGFloat, _ bright: CGFloat) {
+            ctx.setFillColor(CGColor(red: node.0 * bright * 0.45, green: node.1 * bright * 0.45,
+                                     blue: node.2 * bright * 0.45, alpha: 1))
+            ctx.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
+            ctx.setFillColor(CGColor(red: node.0 * bright, green: node.1 * bright,
+                                     blue: node.2 * bright, alpha: 1))
+            let r2 = r * 0.72
+            ctx.fillEllipse(in: CGRect(x: p.x - r2 - r * 0.12, y: p.y - r2 + r * 0.12,
+                                       width: 2 * r2, height: 2 * r2))
+            ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.75 * bright))
+            let hr = r * 0.2
+            ctx.fillEllipse(in: CGRect(x: p.x - r * 0.35 - hr, y: p.y + r * 0.35 - hr,
+                                       width: 2 * hr, height: 2 * hr))
+        }
+        let corners = [CGPoint(x: 0, y: 0), CGPoint(x: S, y: 0),
+                       CGPoint(x: S, y: S), CGPoint(x: 0, y: S)]
+        // Front frame along the tile border (shared between tiles).
+        for i in 0..<4 { line(corners[i], corners[(i + 1) % 4], 4.5, 1.0) }
+        if style == 0 {
+            // Back frame of the cubic pore, receding toward the center.
+            let inset: CGFloat = 20
+            let back = [CGPoint(x: inset, y: inset), CGPoint(x: S - inset, y: inset),
+                        CGPoint(x: S - inset, y: S - inset), CGPoint(x: inset, y: S - inset)]
+            for i in 0..<4 {
+                // Receding strut: bright near the front, dim at depth.
+                let mid = CGPoint(x: (corners[i].x + back[i].x) / 2,
+                                  y: (corners[i].y + back[i].y) / 2)
+                line(corners[i], mid, 3.0, 0.85)
+                line(mid, back[i], 2.2, 0.5)
+                line(back[i], back[(i + 1) % 4], 2.0, 0.45)
+            }
+            for p in back { ball(p, 4.5, 0.55) }
+        } else {
+            // Octahedral pore: corner and edge-midpoint struts converge on a
+            // deep central node.
+            let c = CGPoint(x: S / 2, y: S / 2)
+            let mids = [CGPoint(x: S / 2, y: 0), CGPoint(x: S, y: S / 2),
+                        CGPoint(x: S / 2, y: S), CGPoint(x: 0, y: S / 2)]
+            for p in corners {
+                let mid = CGPoint(x: (p.x + c.x) / 2, y: (p.y + c.y) / 2)
+                line(p, mid, 2.8, 0.8)
+                line(mid, c, 2.0, 0.45)
+            }
+            for p in mids {
+                let mid = CGPoint(x: (p.x + c.x) / 2, y: (p.y + c.y) / 2)
+                line(p, mid, 2.4, 0.7)
+                line(mid, c, 1.8, 0.4)
+                ball(p, 6.5, 0.9)  // edge nodes, shared across the tile seam
+            }
+            ball(c, 5.0, 0.5)
+        }
+        for p in corners { ball(p, 9, 1.0) }
+        return readSprite(ctx)
     }
+
+    private func rndT(_ r: ClosedRange<CGFloat>) -> CGFloat { CGFloat.random(in: r) }
 
     // MARK: - Sprites
 

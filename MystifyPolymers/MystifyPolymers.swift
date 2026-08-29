@@ -1,8 +1,10 @@
 import ScreenSaver
 
 // Mystify Polymers — the Windows "Mystify" bouncing-bezier saver reimagined as
-// wiggling polymer chains changing conformation, plus a bouncing benzene ring
-// that changes color whenever it hits a wall (DVD-logo style).
+// real polymer backbones changing conformation: Kevlar (aromatic amides),
+// nylon-6,6 (aliphatic amides), and polystyrene (pendant phenyls), each drawn
+// as a structural formula along the wiggling curve, with fading ghosts of past
+// conformations. Plus a benzene ring bouncing DVD-logo style.
 
 private func rnd(_ r: ClosedRange<CGFloat>) -> CGFloat { CGFloat.random(in: r) }
 
@@ -23,7 +25,7 @@ private struct Chain {
     var points: [Bouncer]
     var history: [[CGPoint]] = []
     var hue: CGFloat
-    var hueB: CGFloat  // comonomer bead color
+    var style: Int  // 0 Kevlar, 1 nylon-6,6, 2 polystyrene
     var recordCounter = 0
 }
 
@@ -36,7 +38,11 @@ public final class MystifyPolymersView: ScreenSaverView {
     private var benzeneHue: CGFloat = 0.55
     private var benzeneRot: CGFloat = 0
     private var t: CGFloat = 0
-    private let historyLen = 15
+    private let historyLen = 14
+
+    private let oColor = NSColor(calibratedRed: 1.0, green: 0.36, blue: 0.3, alpha: 1)
+    private let nColor = NSColor(calibratedRed: 0.42, green: 0.62, blue: 1.0, alpha: 1)
+    private let hColor = NSColor(calibratedRed: 0.88, green: 0.9, blue: 0.95, alpha: 1)
 
     public override init?(frame: NSRect, isPreview: Bool) {
         super.init(frame: frame, isPreview: isPreview)
@@ -53,7 +59,7 @@ public final class MystifyPolymersView: ScreenSaverView {
     private func setup() {
         let r = bounds.insetBy(dx: 10, dy: 10)
         let w = max(r.width, 600), h = max(r.height, 400)
-        let speed: CGFloat = isPreview ? 2.5 : 5.0
+        let speed: CGFloat = isPreview ? 2.0 : 4.2
         chains = (0..<3).map { i in
             let pts = (0..<6).map { _ -> Bouncer in
                 var b = Bouncer(p: CGPoint(x: rnd(10...w), y: rnd(10...h)), v: .zero)
@@ -62,9 +68,7 @@ public final class MystifyPolymersView: ScreenSaverView {
                 b.v = CGVector(dx: cos(a) * s, dy: sin(a) * s)
                 return b
             }
-            return Chain(points: pts,
-                         hue: CGFloat(i) / 3 + rnd(0...0.1),
-                         hueB: CGFloat(i) / 3 + 0.5 + rnd(0...0.1))
+            return Chain(points: pts, hue: CGFloat(i) / 3 + rnd(0...0.08), style: i)
         }
         benzene = Bouncer(p: CGPoint(x: w / 2, y: h / 2),
                           v: CGVector(dx: speed * 0.7, dy: speed * 0.55))
@@ -104,7 +108,8 @@ public final class MystifyPolymersView: ScreenSaverView {
         drawBenzene(ctx)
     }
 
-    // Catmull-Rom smoothing through the control points.
+    // MARK: - Curve helpers
+
     private func addSmoothPath(_ ctx: CGContext, _ pts: [CGPoint]) {
         guard pts.count > 2 else { return }
         ctx.move(to: pts[0])
@@ -119,7 +124,6 @@ public final class MystifyPolymersView: ScreenSaverView {
         }
     }
 
-    // Points sampled along the same Catmull-Rom curve, for monomer beads.
     private func sampleCurve(_ pts: [CGPoint], per: Int) -> [CGPoint] {
         guard pts.count > 2 else { return pts }
         var out: [CGPoint] = []
@@ -142,39 +146,225 @@ public final class MystifyPolymersView: ScreenSaverView {
         return out
     }
 
+    /// Even arc-length samples along the smooth curve, with unit tangents.
+    private func resample(_ pts: [CGPoint], spacing: CGFloat) -> [(p: CGPoint, t: CGVector)] {
+        let dense = sampleCurve(pts, per: 14)
+        guard dense.count > 2 else { return [] }
+        var positions: [CGPoint] = [dense[0]]
+        var acc: CGFloat = 0
+        var prev = dense[0]
+        for q in dense.dropFirst() {
+            let d = hypot(q.x - prev.x, q.y - prev.y)
+            acc += d
+            if acc >= spacing {
+                acc = 0
+                positions.append(q)
+            }
+            prev = q
+        }
+        var out: [(CGPoint, CGVector)] = []
+        for (i, p) in positions.enumerated() {
+            let a = positions[max(i - 1, 0)]
+            let b = positions[min(i + 1, positions.count - 1)]
+            let len = max(hypot(b.x - a.x, b.y - a.y), 0.001)
+            out.append((p, CGVector(dx: (b.x - a.x) / len, dy: (b.y - a.y) / len)))
+        }
+        return out
+    }
+
+    // MARK: - Atom labels
+
+    private func drawLabel(_ s: String, at p: CGPoint, color: NSColor, size: CGFloat) {
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.boldSystemFont(ofSize: size),
+            .foregroundColor: color,
+        ]
+        let str = NSAttributedString(string: s, attributes: attrs)
+        let sz = str.size()
+        // Black halo so the letter sits cleanly on the backbone line.
+        if let ctx = NSGraphicsContext.current?.cgContext {
+            ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+            ctx.fillEllipse(in: CGRect(x: p.x - sz.width / 2 - 1.5,
+                                       y: p.y - sz.height / 2 - 0.5,
+                                       width: sz.width + 3, height: sz.height + 1))
+        }
+        str.draw(at: CGPoint(x: p.x - sz.width / 2, y: p.y - sz.height / 2))
+    }
+
+    // MARK: - Chains
+
     private func drawChain(_ ctx: CGContext, _ c: Chain) {
         let n = c.history.count
-        for (i, snapshot) in c.history.enumerated() {
-            let age = CGFloat(i + 1) / CGFloat(max(n, 1))
-            let hue = (c.hue + t * 0.02 + CGFloat(i) * 0.012).truncatingRemainder(dividingBy: 1)
-            let isNewest = i == n - 1
+        guard n > 0 else { return }
+        // Ghost conformations
+        for (i, snapshot) in c.history.enumerated() where i < n - 1 {
+            let age = CGFloat(i + 1) / CGFloat(n)
+            let hue = (c.hue + t * 0.02 + CGFloat(i) * 0.012)
+                .truncatingRemainder(dividingBy: 1)
             let color = NSColor(calibratedHue: hue < 0 ? hue + 1 : hue,
                                 saturation: 0.85,
-                                brightness: 0.6 + 0.4 * age,
-                                alpha: isNewest ? 0.95 : 0.12 + 0.38 * age)
+                                brightness: 0.55 + 0.35 * age,
+                                alpha: 0.08 + 0.30 * age)
             ctx.setStrokeColor(color.cgColor)
-            ctx.setLineWidth(isNewest ? 2.6 : 1.4)
+            ctx.setLineWidth(1.3)
             addSmoothPath(ctx, snapshot)
             ctx.strokePath()
-            if isNewest {
-                // Monomer beads along the backbone — alternating comonomers.
-                let beads = sampleCurve(snapshot, per: 4)
-                let hueA = hue
-                let hueB = (c.hueB + t * 0.02).truncatingRemainder(dividingBy: 1)
-                for (j, b) in beads.enumerated() where j % 2 == 0 {
-                    let bh = (j % 4 == 0) ? hueA : hueB
-                    let bc = NSColor(calibratedHue: bh < 0 ? bh + 1 : bh,
-                                     saturation: 0.7, brightness: 1.0, alpha: 0.95)
-                    ctx.setFillColor(bc.cgColor)
-                    let r: CGFloat = (j % 4 == 0) ? 3.2 : 2.2
-                    ctx.fillEllipse(in: CGRect(x: b.x - r, y: b.y - r, width: 2 * r, height: 2 * r))
-                }
-            }
+        }
+        // Current conformation as an actual polymer structure
+        let hue = (c.hue + t * 0.02 + CGFloat(n - 1) * 0.012).truncatingRemainder(dividingBy: 1)
+        let color = NSColor(calibratedHue: hue < 0 ? hue + 1 : hue,
+                            saturation: 0.65, brightness: 1.0, alpha: 0.95)
+        switch c.style {
+        case 0: drawKevlar(ctx, c.history[n - 1], color: color)
+        case 1: drawNylon(ctx, c.history[n - 1], color: color)
+        default: drawPolystyrene(ctx, c.history[n - 1], color: color)
         }
     }
 
+    private func hexagon(_ ctx: CGContext, center: CGPoint, radius: CGFloat,
+                         rotation: CGFloat, color: NSColor, aromatic: Bool) {
+        let path = CGMutablePath()
+        for k in 0..<6 {
+            let a = rotation + CGFloat(k) * .pi / 3
+            let v = CGPoint(x: center.x + radius * cos(a), y: center.y + radius * sin(a))
+            if k == 0 { path.move(to: v) } else { path.addLine(to: v) }
+        }
+        path.closeSubpath()
+        ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        ctx.addPath(path)
+        ctx.fillPath()
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(2)
+        ctx.addPath(path)
+        ctx.strokePath()
+        if aromatic {
+            ctx.setLineWidth(1.3)
+            ctx.strokeEllipse(in: CGRect(x: center.x - radius * 0.55,
+                                         y: center.y - radius * 0.55,
+                                         width: radius * 1.1, height: radius * 1.1))
+        }
+    }
+
+    /// C=O stub: two short parallel lines plus a red O.
+    private func drawCarbonyl(_ ctx: CGContext, at p: CGPoint, dir: CGVector,
+                              side: CGFloat, color: NSColor) {
+        let perp = CGVector(dx: -dir.dy * side, dy: dir.dx * side)
+        let end = CGPoint(x: p.x + perp.dx * 9, y: p.y + perp.dy * 9)
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(1.6)
+        for off: CGFloat in [-1.5, 1.5] {
+            ctx.move(to: CGPoint(x: p.x + dir.dx * off, y: p.y + dir.dy * off))
+            ctx.addLine(to: CGPoint(x: end.x + dir.dx * off, y: end.y + dir.dy * off))
+        }
+        ctx.strokePath()
+        drawLabel("O", at: CGPoint(x: p.x + perp.dx * 13, y: p.y + perp.dy * 13),
+                  color: oColor, size: 10)
+    }
+
+    /// N with its H stub on the opposite side of the backbone.
+    private func drawAmideN(_ ctx: CGContext, at p: CGPoint, dir: CGVector,
+                            side: CGFloat, color: NSColor) {
+        let perp = CGVector(dx: dir.dy * side, dy: -dir.dx * side)
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(1.6)
+        ctx.move(to: p)
+        ctx.addLine(to: CGPoint(x: p.x + perp.dx * 8, y: p.y + perp.dy * 8))
+        ctx.strokePath()
+        drawLabel("N", at: p, color: nColor, size: 10)
+        drawLabel("H", at: CGPoint(x: p.x + perp.dx * 12, y: p.y + perp.dy * 12),
+                  color: hColor, size: 8)
+    }
+
+    // Kevlar: [-NH-C6H4-NH-CO-C6H4-CO-]n — rings on the smooth curve joined by
+    // amide linkages.
+    private func drawKevlar(_ ctx: CGContext, _ snapshot: [CGPoint], color: NSColor) {
+        let samples = resample(snapshot, spacing: 13)
+        guard samples.count > 7 else { return }
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(1.8)
+        ctx.move(to: samples[0].p)
+        for s in samples.dropFirst() { ctx.addLine(to: s.p) }
+        ctx.strokePath()
+        var unit = 0
+        var i = 0
+        while i < samples.count {
+            let cycle = i % 6
+            let s = samples[i]
+            let angle = atan2(s.t.dy, s.t.dx)
+            if cycle == 0 {
+                hexagon(ctx, center: s.p, radius: 10, rotation: angle,
+                        color: color, aromatic: true)
+            } else if cycle == 3 {
+                let side: CGFloat = unit % 2 == 0 ? 1 : -1
+                drawCarbonyl(ctx, at: s.p, dir: s.t, side: side, color: color)
+            } else if cycle == 4 {
+                let side: CGFloat = unit % 2 == 0 ? 1 : -1
+                drawAmideN(ctx, at: s.p, dir: s.t, side: side, color: color)
+                unit += 1
+            }
+            i += 1
+        }
+    }
+
+    // Nylon-6,6: zigzag aliphatic backbone with periodic amide groups.
+    private func drawNylon(_ ctx: CGContext, _ snapshot: [CGPoint], color: NSColor) {
+        let samples = resample(snapshot, spacing: 11)
+        guard samples.count > 4 else { return }
+        var zig: [CGPoint] = []
+        for (i, s) in samples.enumerated() {
+            let side: CGFloat = i % 2 == 0 ? 4.5 : -4.5
+            zig.append(CGPoint(x: s.p.x - s.t.dy * side, y: s.p.y + s.t.dx * side))
+        }
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(1.8)
+        ctx.move(to: zig[0])
+        for p in zig.dropFirst() { ctx.addLine(to: p) }
+        ctx.strokePath()
+        var i = 2
+        while i + 1 < zig.count {
+            if i % 8 == 2 {
+                // Apex direction: even indices bulge one way, odd the other.
+                let sideC: CGFloat = i % 2 == 0 ? 1 : -1
+                drawCarbonyl(ctx, at: zig[i], dir: samples[i].t, side: sideC, color: color)
+                let sideN: CGFloat = (i + 1) % 2 == 0 ? -1 : 1
+                drawAmideN(ctx, at: zig[i + 1], dir: samples[i + 1].t, side: sideN, color: color)
+            }
+            i += 1
+        }
+    }
+
+    // Polystyrene: zigzag backbone with pendant phenyl rings on alternate carbons.
+    private func drawPolystyrene(_ ctx: CGContext, _ snapshot: [CGPoint], color: NSColor) {
+        let samples = resample(snapshot, spacing: 11)
+        guard samples.count > 4 else { return }
+        var zig: [CGPoint] = []
+        for (i, s) in samples.enumerated() {
+            let side: CGFloat = i % 2 == 0 ? 4.5 : -4.5
+            zig.append(CGPoint(x: s.p.x - s.t.dy * side, y: s.p.y + s.t.dx * side))
+        }
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(1.8)
+        ctx.move(to: zig[0])
+        for p in zig.dropFirst() { ctx.addLine(to: p) }
+        ctx.strokePath()
+        for i in stride(from: 2, to: zig.count - 1, by: 4) {
+            let s = samples[i]
+            let side: CGFloat = i % 2 == 0 ? 1 : -1
+            let perp = CGVector(dx: -s.t.dy * side, dy: s.t.dx * side)
+            let ringC = CGPoint(x: zig[i].x + perp.dx * 15, y: zig[i].y + perp.dy * 15)
+            ctx.setStrokeColor(color.cgColor)
+            ctx.setLineWidth(1.6)
+            ctx.move(to: zig[i])
+            ctx.addLine(to: CGPoint(x: ringC.x - perp.dx * 7, y: ringC.y - perp.dy * 7))
+            ctx.strokePath()
+            hexagon(ctx, center: ringC, radius: 7,
+                    rotation: atan2(perp.dy, perp.dx), color: color, aromatic: true)
+        }
+    }
+
+    // MARK: - Benzene bouncer
+
     private func drawBenzene(_ ctx: CGContext) {
-        // Faded trail
         for (i, p) in benzeneTrail.enumerated() {
             let a = 0.05 + 0.08 * CGFloat(i) / CGFloat(max(benzeneTrail.count, 1))
             drawBenzeneRing(ctx, at: p, radius: 30, alpha: a, lineScale: 0.7)
@@ -203,7 +393,6 @@ public final class MystifyPolymersView: ScreenSaverView {
         ctx.setLineWidth(2 * lineScale)
         ctx.strokeEllipse(in: CGRect(x: -radius * 0.58, y: -radius * 0.58,
                                      width: radius * 1.16, height: radius * 1.16))
-        // Vertex carbons
         ctx.setFillColor(color.cgColor)
         for i in 0..<6 {
             let a = CGFloat(i) * .pi / 3 + .pi / 6

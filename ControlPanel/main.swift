@@ -217,6 +217,19 @@ final class RootView: NSView {
         retroText("Settings", at: CGPoint(x: g.minX + 14, y: g.minY - 9), bold: false)
         // Module list label
         retroText("Module:", at: CGPoint(x: 14, y: 16))
+        // Monitor group box (etched): system idle + display sleep
+        let m = CGRect(x: 14, y: 214, width: 194, height: 146)
+        ctx.setStrokeColor(faceShadow.cgColor)
+        ctx.setLineWidth(1)
+        ctx.stroke(m)
+        ctx.setStrokeColor(faceLight.cgColor)
+        ctx.stroke(m.offsetBy(dx: 1, dy: 1))
+        ctx.setFillColor(face.cgColor)
+        ctx.fill(CGRect(x: m.minX + 10, y: m.minY - 8, width: 66, height: 16))
+        retroText("Monitor", at: CGPoint(x: m.minX + 14, y: m.minY - 9), bold: false)
+        retroText("Sleep changes need admin OK.",
+                  at: CGPoint(x: 22, y: 338), bold: false, size: 10,
+                  color: faceShadow)
         // Logo block
         retroText("AFTER", at: CGPoint(x: 16, y: 370), bold: true, size: 30,
                   color: NSColor(calibratedRed: 0.55, green: 0.1, blue: 0.55, alpha: 1))
@@ -224,7 +237,7 @@ final class RootView: NSView {
                   color: .black)
         retroText("Chemistry screen savers", at: CGPoint(x: 16, y: 442),
                   bold: false, size: 11)
-        retroText("v1.0 \u{00A9} 1996 Gassensmith Labs", at: CGPoint(x: 16, y: 458),
+        retroText("v1.1 \u{00A9} 1996 Gassensmith Labs", at: CGPoint(x: 16, y: 458),
                   bold: false, size: 11)
         retroText("All molecules biblically accurate.", at: CGPoint(x: 16, y: 474),
                   bold: false, size: 11)
@@ -317,7 +330,7 @@ let winW: CGFloat = 720, winH: CGFloat = 540
 let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: winW, height: winH),
                    styleMask: [.titled, .closable, .miniaturizable],
                    backing: .buffered, defer: false)
-win.title = "After Dork 1.0"
+win.title = "After Dork 1.1"
 let root = RootView(frame: NSRect(x: 0, y: 0, width: winW, height: winH))
 win.contentView = root
 
@@ -448,6 +461,115 @@ root.addSubview(statusLabel)
 updatesButton.action = { updaterController.checkForUpdates(nil) }
 
 quitButton.action = { app.terminate(nil) }
+
+// MARK: - Monitor group: screen saver idle time + display sleep
+
+/// Screen saver activation delay in seconds (0 = never). Same per-host prefs
+/// domain "Set Screen Saver" already writes; missing key means the macOS
+/// default of 20 minutes.
+func readIdleSeconds() -> Int {
+    let v = CFPreferencesCopyValue("idleTime" as CFString,
+                                   "com.apple.screensaver" as CFString,
+                                   kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)
+    return (v as? NSNumber)?.intValue ?? 1200
+}
+
+func writeIdleSeconds(_ seconds: Int) {
+    CFPreferencesSetValue("idleTime" as CFString, seconds as CFNumber,
+                          "com.apple.screensaver" as CFString,
+                          kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)
+    CFPreferencesSynchronize("com.apple.screensaver" as CFString,
+                             kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)
+}
+
+/// Display sleep in minutes for the active power source (0 = never), read
+/// without privileges from `pmset -g`.
+func readDisplaySleepMinutes() -> Int? {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+    p.arguments = ["-g"]
+    let pipe = Pipe()
+    p.standardOutput = pipe
+    do { try p.run() } catch { return nil }
+    p.waitUntilExit()
+    let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(),
+                     encoding: .utf8) ?? ""
+    for line in out.split(separator: "\n") {
+        let parts = line.split(separator: " ", omittingEmptySubsequences: true)
+        if parts.count >= 2, parts[0] == "displaysleep" { return Int(parts[1]) }
+    }
+    return nil
+}
+
+/// Setting display sleep is root-only (`pmset -a`), so this is the one place
+/// the app may put up an admin prompt — and only when the user drags the
+/// sleep slider. Returns false if they cancel.
+func setDisplaySleepMinutes(_ minutes: Int) -> Bool {
+    let src = "do shell script \"pmset -a displaysleep \(minutes)\""
+        + " with administrator privileges"
+    var err: NSDictionary?
+    NSAppleScript(source: src)?.executeAndReturnError(&err)
+    return err == nil
+}
+
+func fmtMinutes(_ m: Int) -> String { m == 0 ? "Never" : "\(m) min" }
+
+func monitorLabel(_ text: String, x: CGFloat, y: CGFloat, w: CGFloat,
+                  right: Bool = false) -> NSTextField {
+    let l = NSTextField(labelWithString: text)
+    l.frame = NSRect(x: x, y: y, width: w, height: 16)
+    l.font = NSFont.systemFont(ofSize: 11)
+    l.textColor = .black
+    l.alignment = right ? .right : .left
+    root.addSubview(l)
+    return l
+}
+
+var displaySleepNow = readDisplaySleepMinutes() ?? 0
+let idleMinutes = readIdleSeconds() / 60
+_ = monitorLabel("Start saver after:", x: 22, y: 226, w: 110)
+let saverValue = monitorLabel(fmtMinutes(idleMinutes), x: 132, y: 226, w: 70,
+                              right: true)
+let saverSlider = RetroSlider(frame: NSRect(x: 22, y: 246, width: 178, height: 22),
+                              minV: 0, maxV: Double(max(60, idleMinutes)),
+                              value: Double(idleMinutes), isInt: true)
+saverSlider.onLiveChange = { v in saverValue.stringValue = fmtMinutes(Int(v)) }
+saverSlider.onCommit = { v in
+    writeIdleSeconds(Int(v) * 60)
+    if Int(v) != 0, displaySleepNow != 0, displaySleepNow <= Int(v) {
+        statusLabel.stringValue =
+            "Careful: display sleeps first (\(fmtMinutes(displaySleepNow)))."
+    } else {
+        statusLabel.stringValue = Int(v) == 0
+            ? "Screen saver will never start."
+            : "Screen saver starts after \(fmtMinutes(Int(v)))."
+    }
+}
+root.addSubview(saverSlider)
+
+_ = monitorLabel("Display sleep after:", x: 22, y: 286, w: 110)
+let sleepValue = monitorLabel(fmtMinutes(displaySleepNow), x: 132, y: 286, w: 70,
+                              right: true)
+let sleepSlider = RetroSlider(frame: NSRect(x: 22, y: 306, width: 178, height: 22),
+                              minV: 0, maxV: Double(max(60, displaySleepNow)),
+                              value: Double(displaySleepNow), isInt: true)
+sleepSlider.onLiveChange = { v in sleepValue.stringValue = fmtMinutes(Int(v)) }
+sleepSlider.onCommit = { v in
+    let m = Int(v)
+    if m == displaySleepNow { return }
+    if setDisplaySleepMinutes(m) {
+        displaySleepNow = m
+        statusLabel.stringValue = m == 0
+            ? "Display will never sleep."
+            : "Display sleeps after \(fmtMinutes(m)) (all power sources)."
+    } else {
+        sleepSlider.value = Double(displaySleepNow)
+        sleepSlider.needsDisplay = true
+        sleepValue.stringValue = fmtMinutes(displaySleepNow)
+        statusLabel.stringValue = "Display sleep unchanged."
+    }
+}
+root.addSubview(sleepSlider)
 
 /// Tahoe's idle activation ignores the legacy moduleDict and reads the
 /// Wallpaper store instead, so "Set Screen Saver" must rewrite the store's

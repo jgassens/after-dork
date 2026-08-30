@@ -67,10 +67,11 @@ if args.contains("--window") {
         }
     }
 
+    let captureAll = args.contains("--all")  // every frame, for video export
     let capture: Set<Int> = [total / 4, total / 2, total - 1]
     for i in 0..<total {
         view.animateOneFrame()
-        if capture.contains(i) {
+        if captureAll || capture.contains(i) {
             snapshot("\(outPrefix)-\(String(format: "%04d", i)).png")
         }
     }

@@ -204,12 +204,15 @@ public final class StoddartReefView: ScreenSaverView {
                                    width: 18, height: 18))
     }
 
-    /// PEG seaweed: a wiggling glycol chain with red ether oxygens.
+    /// PEG seaweed: a skeletal glycol chain — vertices zig-zagging across the
+    /// swaying spine like a drawn PEG, ether oxygens every third vertex
+    /// (O-C-C repeat), a terminal OH at the tip.
     private func drawWeed(_ ctx: CGContext, _ weed: Weed) {
         var pts: [CGPoint] = []
         for k in 0...weed.segments {
             let sway = sin(t * 1.1 + weed.phase + CGFloat(k) * 0.45) * CGFloat(k) * 1.1
-            pts.append(CGPoint(x: weed.x + sway, y: sandH - 6 + CGFloat(k) * 10))
+            let zig: CGFloat = k % 2 == 0 ? -4 : 4
+            pts.append(CGPoint(x: weed.x + sway + zig, y: sandH - 6 + CGFloat(k) * 10))
         }
         ctx.setStrokeColor(CGColor(red: 0.22, green: 0.65, blue: 0.40, alpha: 0.95))
         ctx.setLineWidth(2.6)
@@ -220,6 +223,11 @@ public final class StoddartReefView: ScreenSaverView {
         ctx.setFillColor(CGColor(red: 0.95, green: 0.4, blue: 0.32, alpha: 1))
         for (k, p) in pts.enumerated() where k % 3 == 2 {
             ctx.fillEllipse(in: CGRect(x: p.x - 2.5, y: p.y - 2.5, width: 5, height: 5))
+        }
+        if let tip = pts.last {
+            drawTinyLabel(ctx, "OH", at: CGPoint(x: tip.x, y: tip.y + 8), size: 8,
+                          color: NSColor(calibratedRed: 0.95, green: 0.4, blue: 0.32,
+                                         alpha: 1), halo: false)
         }
     }
 
@@ -286,6 +294,26 @@ public final class StoddartReefView: ScreenSaverView {
     }
 
     // MARK: - Swimmers
+
+    /// 18-crown-6 skeletal ring: 18 vertices (O-CH2-CH2 repeating), the six
+    /// oxygens tucked into notches at 0.82R so each ethylene bridge bulges
+    /// outward — the classic crown scallop. Leaves the path in the context
+    /// (caller strokes it) and returns the oxygen positions.
+    @discardableResult
+    private func addCrownPath(_ ctx: CGContext, radius: CGFloat,
+                              rotation: CGFloat) -> [CGPoint] {
+        var oxygens: [CGPoint] = []
+        ctx.beginPath()
+        for i in 0..<18 {
+            let a = rotation + CGFloat(i) * .pi / 9
+            let r = i % 3 == 0 ? radius * 0.82 : radius
+            let p = CGPoint(x: r * cos(a), y: r * sin(a))
+            if i % 3 == 0 { oxygens.append(p) }
+            if i == 0 { ctx.move(to: p) } else { ctx.addLine(to: p) }
+        }
+        ctx.closePath()
+        return oxygens
+    }
 
     private func drawSwimmer(_ ctx: CGContext, _ s: Swimmer) {
         ctx.saveGState()
@@ -365,12 +393,12 @@ public final class StoddartReefView: ScreenSaverView {
             ctx.translateBy(x: 15, y: 0)
             ctx.setStrokeColor(crownRed)
             ctx.setLineWidth(6)
-            ctx.strokeEllipse(in: CGRect(x: -25, y: -25, width: 50, height: 50))
-            // Ether oxygens riding the ring as it circumrotates
+            ctx.setLineJoin(.round)
+            let oxygens = addCrownPath(ctx, radius: 25, rotation: -rot)
+            ctx.strokePath()
             ctx.setFillColor(CGColor(red: 1, green: 0.85, blue: 0.8, alpha: 1))
-            for i in 0..<6 {
-                let a = -rot + CGFloat(i) * .pi / 3
-                ctx.fillEllipse(in: CGRect(x: 25 * cos(a) - 3, y: 25 * sin(a) - 3,
+            for p in oxygens {
+                ctx.fillEllipse(in: CGRect(x: p.x - 3, y: p.y - 3,
                                            width: 6, height: 6))
             }
             ctx.restoreGState()
@@ -443,14 +471,17 @@ public final class StoddartReefView: ScreenSaverView {
             }
             ctx.strokePath()
         }
-        // Macrocycle with ether oxygens
+        // Macrocycle: the real 18-crown-6 scallop, an oxygen notch at twelve
+        // o'clock, swaying gently instead of spinning.
         ctx.setStrokeColor(crownRed)
         ctx.setLineWidth(3.6)
-        ctx.strokeEllipse(in: CGRect(x: -r, y: -r, width: 2 * r, height: 2 * r))
+        ctx.setLineJoin(.round)
+        let sway: CGFloat = .pi / 2 + 0.18 * sin(s.phase * 0.7)
+        let oxygens = addCrownPath(ctx, radius: r, rotation: sway)
+        ctx.strokePath()
         ctx.setFillColor(CGColor(red: 1, green: 0.85, blue: 0.8, alpha: 1))
-        for i in 0..<6 {
-            let a = CGFloat(i) * .pi / 3 + s.phase * 0.5
-            ctx.fillEllipse(in: CGRect(x: r * cos(a) - 2.8, y: r * sin(a) - 2.8,
+        for p in oxygens {
+            ctx.fillEllipse(in: CGRect(x: p.x - 2.8, y: p.y - 2.8,
                                        width: 5.6, height: 5.6))
         }
         // The potassium passenger

@@ -4,7 +4,7 @@
 
 In 1996, After Dark gave the world flying toasters and we, as a civilisation,
 peaked. Everything since has been decline management. After Dork is an attempt
-to claw our way back: seven lovingly hand-programmed screen saver modules in
+to claw our way back: eight lovingly hand-programmed screen saver modules in
 which the toasters are Erlenmeyer flasks, the pipes are Schlenk lines, and the
 maze is a metal–organic framework with — and I cannot stress this enough —
 **crystallographically defensible wall art**.
@@ -43,7 +43,7 @@ yourself.
 ![The control panel. Yes, those bevels are load-bearing.](docs/control-panel.png)
 
 Updates install themselves automatically (via Sparkle), so once it's on your
-machine it will quietly improve over time, and honestly? That's rare. em dash. em dash.
+machine it will quietly improve over time, and honestly? That's rare.
 
 ---
 
@@ -58,15 +58,18 @@ toast. The round-bottom flasks have bat wings. They know what they did.
 
 ![Flying Flasks](docs/flying-flasks.png)
 
-### Glassware Pipes
+### Schlenk Pipes
 Windows 3D Pipes, except the pipes are borosilicate and the fittings are
 correct: ball joints, frosted ground-glass collars held by little plastic Keck
-clips, pinch clamps with wing nuts, condenser coils, and — when a line has
-truly given up on modernity — an alembic, dripping distillate like it's 1596
-instead of 1996. When the hood fills up, everything is flushed and the
-glassware washes itself, a feature not yet available in your actual lab.
+clips, pinch clamps with wing nuts, condenser coils, red-handled stopcocks,
+and manifold take-offs with round-bottom flasks plumbed in, stir bars going.
+Every line ends the way air-free chemistry ends: in a Schlenk flask, an oil
+bubbler burping patiently, or a cold trap sweating frost in its dewar while
+a little vacuum pump hums beside it. When the hood fills up, everything is
+flushed and the glassware washes itself, a feature not yet available in your
+actual lab.
 
-![Glassware Pipes](docs/glassware-pipes.png)
+![Schlenk Pipes](docs/glassware-pipes.png)
 
 ### Lattice Maze
 The Windows 95 maze, but you are a guest molecule diffusing through a MOF.
@@ -117,6 +120,21 @@ is no stereochemistry in the rain. We removed it. You're welcome.
 
 ![SMILES Rain](docs/smiles-rain.png)
 
+### Castaway Chemist
+Sierra's "Johnny Castaway," relocated from a desert island to the only place
+lonelier: a working lab. A grad student shuffles between the fume hood, the
+rotovap, and the NMR while the lab does what labs do — the hood detonates in
+colored smoke, the rotovap drops its flask into the bath, and the magnet
+either quenches in a pillar of helium fog or returns their sample at escape
+velocity. Some days they wheel in a gas cylinder on a dolly for a refill —
+an operation containing two coin flips, either of which can end with
+something very heavy flying around the lab. The NMR tubes stuck in the ceiling stay there, a permanent record
+of their sins. Between disasters they type the thesis at the corner desk
+until sleep wins, Z's stacking toward the ceiling. The wall clock spins
+through the years of the PhD. They are never getting out.
+
+![Castaway Chemist](docs/castaway-chemist.png)
+
 ---
 
 ## Frequently asked questions
@@ -152,13 +170,13 @@ Then we went a little nuts.
 ```sh
 git clone https://github.com/jgassens/after-dork.git
 cd after-dork
-make app        # build/AfterDork.app with all seven modules inside
+make app        # build/AfterDork.app with all eight modules inside
 make            # or: just the .saver bundles
 make install    # copy savers to ~/Library/Screen Savers
 make previews   # render PNG frames offscreen for tinkering
 ```
 
-No Xcode project. No asset catalogue. One Makefile, seven `ScreenSaverView`
+No Xcode project. No asset catalogue. One Makefile, eight `ScreenSaverView`
 subclasses, a software raycaster, and the conviction that 1996 was right
 about UI design. `make release` (maintainer only) signs, notarises, staples,
 publishes the GitHub release, and regenerates the Sparkle appcast.
@@ -166,11 +184,12 @@ publishes the GitHub release, and regenerates the Sparkle appcast.
 | Saver | Parody of | Options |
 |---|---|---|
 | Flying Flasks | After Dark "Flying Toasters" | flock size, drips |
-| Glassware Pipes | Windows "3D Pipes" | growth speed, alembics |
+| Schlenk Pipes | Windows "3D Pipes" | growth speed, fancy glassware |
 | Lattice Maze | Windows 95 "3D Maze" | crawl speed, gas molecules |
 | Mystify Origami | Windows "Mystify" | speed, echo depth |
 | Stoddart Reef | After Dark "Fish!" | population, bubbles |
 | Orbital Box | Windows "3D Flower Box" | spin speed, morph speed |
 | SMILES Rain | The Matrix | rain speed, name reveals |
+| Castaway Chemist | Sierra "Johnny Castaway" | chaos, NMR quenches |
 
 MIT licensed. © 1996, emotionally. All molecules biblically accurate.

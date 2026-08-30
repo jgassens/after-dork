@@ -1,10 +1,11 @@
 import ScreenSaver
 import simd
 
-// Glassware Pipes — the Windows "3D Pipes" saver rebuilt as a lab plumbing
-// nightmare: glass tubing grows across the screen joint by joint, sprouting
-// ground-glass collars, ball joints, and the occasional condenser coil, until
-// the hood is full and everything gets flushed for a fresh setup.
+// Schlenk Pipes — the Windows "3D Pipes" saver rebuilt as an air-free
+// plumbing nightmare: glass tubing grows across the screen joint by joint,
+// sprouting ground-glass collars, stopcocks, manifold take-offs, and the
+// occasional condenser coil; runs retire into Schlenk flasks, oil bubblers,
+// and cold traps, until the hood is full and everything gets flushed.
 
 private typealias V3 = SIMD3<Double>
 
@@ -42,7 +43,10 @@ private struct Camera {
 }
 
 private struct DrawItem {
-    var kind: Int  // 0 tube, 1 ball joint, 2 ground-glass collar, 3 condenser
+    // 0 tube, 1 ball joint, 2 ground-glass collar, 3 condenser,
+    // 4 clamped ball, 5 cold trap, 6 stopcock, 7 Schlenk flask, 8 bubbler,
+    // 9 manifold take-off with flask
+    var kind: Int
     var depth: Double
     var p1 = CGPoint.zero
     var p2 = CGPoint.zero
@@ -111,11 +115,13 @@ public final class GlasswarePipesView: ScreenSaverView {
     private func world(_ c: SIMD3<Int>) -> V3 { V3(Double(c.x), Double(c.y), Double(c.z)) }
 
     private var speedMul = 1.0
-    private var alembicsOn = true
+    private var fancyOn = true
 
     private func resetScene() {
         speedMul = max(0.3, min(3, AfterDork.value("GlasswarePipes", "speed", 1.0)))
-        alembicsOn = AfterDork.flag("GlasswarePipes", "alembics", true)
+        // Settings key kept as "alembics" for compatibility; it now gates
+        // all the fancy glassware.
+        fancyOn = AfterDork.flag("GlasswarePipes", "alembics", true)
         occupied.removeAll()
         items.removeAll()
         pipes.removeAll()
@@ -189,30 +195,53 @@ public final class GlasswarePipesView: ScreenSaverView {
         addTube(from: world(from), to: world(to), color: p.color)
         p.head = to
         guard let nd = chooseDir(from: to, current: p.dir) else {
-            // Stuck: retire the pipe — half the time it ends in an alembic
-            // (the alchemists were here first), otherwise a ball-joint cap.
-            if alembicsOn && rnd(0...1) < 0.5 {
-                addAlembic(at: world(to), color: p.color)
-            } else {
-                addBall(at: world(to), color: p.color, r: 0.30, clamped: false)
-            }
+            // Stuck: retire the pipe into a piece of end glassware.
+            addTerminator(at: world(to), color: p.color)
             p.alive = false
             deadStarts += 1
             return
         }
-        if alembicsOn && rnd(0...1) < 0.03 {
-            // Deliberate retirement: the run ends in an alembic.
-            addAlembic(at: world(to), color: p.color)
+        if fancyOn && rnd(0...1) < 0.03 {
+            // Deliberate retirement: the run ends in fancy glassware.
+            addTerminator(at: world(to), color: p.color, fancyOnly: true)
             p.alive = false
             return
         }
         if nd != p.dir {
             // Elbow ball joint, some held by a pinch clamp.
             addBall(at: world(to), color: p.color, r: 0.34, clamped: rnd(0...1) < 0.3)
-        } else if rnd(0...1) < 0.16 {
-            addCollar(at: world(to), dir: nd)  // ground-glass joint on a straight run
+        } else {
+            // Hardware on a straight run: ground-glass joint, stopcock, or —
+            // on horizontal runs — a manifold take-off with a flask plumbed in.
+            let roll = rnd(0...1)
+            if roll < 0.10 {
+                addCollar(at: world(to), dir: nd)
+            } else if fancyOn, roll < 0.18 {
+                addStopcock(at: world(to), dir: nd)
+            } else if fancyOn && nd.y == 0 && roll < 0.26 {
+                addManifold(at: world(to), dir: nd)
+            }
         }
         p.dir = nd
+    }
+
+    /// End-of-run glassware: Schlenk flask, oil bubbler, cold trap on a
+    /// vacuum pump, or a plain ball-joint cap.
+    private func addTerminator(at p: V3, color: Int, fancyOnly: Bool = false) {
+        guard fancyOn else {
+            addBall(at: p, color: color, r: 0.30, clamped: false)
+            return
+        }
+        let roll = rnd(0...1)
+        if roll < 0.30 {
+            addGlass(kind: 7, at: p, color: color)
+        } else if roll < 0.55 {
+            addGlass(kind: 8, at: p, color: color)
+        } else if roll < 0.80 || fancyOnly {
+            addGlass(kind: 5, at: p, color: color)
+        } else {
+            addBall(at: p, color: color, r: 0.30, clamped: false)
+        }
     }
 
     // MARK: - Display list
@@ -251,10 +280,31 @@ public final class GlasswarePipesView: ScreenSaverView {
         needSort = true
     }
 
-    private func addAlembic(at p: V3, color: Int) {
+    private func addManifold(at p: V3, dir: SIMD3<Int>) {
+        let d = V3(Double(dir.x), Double(dir.y), Double(dir.z)) * 0.5
+        let (p1, z1) = camera.project(p - d)
+        let (p2, z2) = camera.project(p + d)
+        let zm = (z1 + z2) / 2 - 0.015
+        items.append(DrawItem(kind: 9, depth: zm, p1: p1, p2: p2,
+                              w: 0.30 * camera.fl / max(zm, 0.6),
+                              color: Int.random(in: 0..<tints.count)))
+        needSort = true
+    }
+
+    private func addGlass(kind: Int, at p: V3, color: Int) {
         let (pt, z) = camera.project(p)
-        items.append(DrawItem(kind: 5, depth: z - 0.02, p1: pt,
+        items.append(DrawItem(kind: kind, depth: z - 0.02, p1: pt,
                               w: 0.5 * camera.fl / max(z, 0.6), color: color))
+        needSort = true
+    }
+
+    private func addStopcock(at p: V3, dir: SIMD3<Int>) {
+        let d = V3(Double(dir.x), Double(dir.y), Double(dir.z)) * 0.3
+        let (p1, z1) = camera.project(p - d)
+        let (p2, z2) = camera.project(p + d)
+        let zm = (z1 + z2) / 2 - 0.015
+        items.append(DrawItem(kind: 6, depth: zm, p1: p1, p2: p2,
+                              w: 0.30 * camera.fl / max(zm, 0.6), color: 0))
         needSort = true
     }
 
@@ -376,66 +426,402 @@ public final class GlasswarePipesView: ScreenSaverView {
             drawCapsule(ctx, item.p1, item.p2, w: item.w * 0.55,
                         color: item.color, depth: item.depth)
         case 5:
-            drawAlembic(ctx, at: item.p1, s: item.w, color: item.color, depth: item.depth)
+            drawColdTrap(ctx, at: item.p1, s: item.w, color: item.color,
+                         depth: item.depth)
+        case 6:
+            drawStopcock(ctx, item)
+        case 7:
+            drawSchlenkFlask(ctx, at: item.p1, s: item.w, color: item.color,
+                             depth: item.depth)
+        case 8:
+            drawBubbler(ctx, at: item.p1, s: item.w, color: item.color,
+                        depth: item.depth)
+        case 9:
+            drawManifold(ctx, item)
         default:
             break
         }
     }
 
-    /// An alembic still-head: onion-domed bulb with a long spout angling down,
-    /// mid-distillation.
-    private func drawAlembic(_ ctx: CGContext, at p: CGPoint, s: Double,
-                             color: Int, depth: Double) {
-        let body = CGMutablePath()
-        body.addEllipse(in: CGRect(x: p.x - s, y: p.y - s, width: 2 * s, height: 2 * s))
-        // Onion dome rising to a point
-        body.move(to: CGPoint(x: p.x - s * 0.72, y: p.y + s * 0.64))
-        body.addQuadCurve(to: CGPoint(x: p.x, y: p.y + s * 1.95),
-                          control: CGPoint(x: p.x - s * 0.6, y: p.y + s * 1.5))
-        body.addQuadCurve(to: CGPoint(x: p.x + s * 0.72, y: p.y + s * 0.64),
-                          control: CGPoint(x: p.x + s * 0.6, y: p.y + s * 1.5))
-        body.closeSubpath()
-
-        ctx.addPath(body)
-        ctx.setFillColor(shade(color, 0.75, alpha: 0.96, depth: depth))
+    /// Cold trap: the line drops into a glass cold finger sunk in a silver
+    /// dewar of liquid nitrogen, side-armed over to a little vacuum pump.
+    /// Vapor curls off the rim.
+    private func drawColdTrap(_ ctx: CGContext, at p: CGPoint, s: Double,
+                              color: Int, depth: Double) {
+        ctx.setLineCap(.round)
+        // Side arm out over the dewar, then down to the pump inlet
+        let armY = p.y - s * 0.4
+        // The whole pump assembly buzzes about a pixel — it's running.
+        let vib = s * 0.025
+        let pumpC = CGPoint(
+            x: p.x + s * 1.55 + vib * sin(Double(tick) * 1.9 + Double(p.x)),
+            y: p.y - s * 1.7 + vib * cos(Double(tick) * 2.3 + Double(p.x)))
+        ctx.setStrokeColor(shade(color, 0.45, alpha: 1, depth: depth))
+        ctx.setLineWidth(max(s * 0.22, 1.6))
+        ctx.move(to: CGPoint(x: p.x, y: armY))
+        ctx.addLine(to: CGPoint(x: pumpC.x, y: armY))
+        ctx.addLine(to: CGPoint(x: pumpC.x, y: pumpC.y + s * 0.35))
+        ctx.strokePath()
+        ctx.setStrokeColor(shade(color, 0.9, alpha: 1, depth: depth))
+        ctx.setLineWidth(max(s * 0.12, 1))
+        ctx.move(to: CGPoint(x: p.x, y: armY))
+        ctx.addLine(to: CGPoint(x: pumpC.x, y: armY))
+        ctx.addLine(to: CGPoint(x: pumpC.x, y: pumpC.y + s * 0.35))
+        ctx.strokePath()
+        // Neck down from the line
+        ctx.setLineWidth(max(s * 0.3, 2))
+        ctx.move(to: p)
+        ctx.addLine(to: CGPoint(x: p.x, y: p.y - s * 1.0))
+        ctx.strokePath()
+        // The cold finger proper: a fatter glass trap body that visibly
+        // pokes out of the dewar mouth before sinking in.
+        ctx.setStrokeColor(shade(color, 0.45, alpha: 1, depth: depth))
+        ctx.setLineWidth(s * 0.58)
+        ctx.move(to: CGPoint(x: p.x, y: p.y - s * 0.9))
+        ctx.addLine(to: CGPoint(x: p.x, y: p.y - s * 1.8))
+        ctx.strokePath()
+        ctx.setStrokeColor(shade(color, 0.85, alpha: 1, depth: depth))
+        ctx.setLineWidth(s * 0.4)
+        ctx.move(to: CGPoint(x: p.x, y: p.y - s * 0.9))
+        ctx.addLine(to: CGPoint(x: p.x, y: p.y - s * 1.8))
+        ctx.strokePath()
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.5))
+        ctx.setLineWidth(max(s * 0.09, 0.8))
+        ctx.move(to: CGPoint(x: p.x - s * 0.14, y: p.y - s * 0.95))
+        ctx.addLine(to: CGPoint(x: p.x - s * 0.14, y: p.y - s * 1.3))
+        ctx.strokePath()
+        // Silver dewar swallowing the bottom of the finger: a tall narrow
+        // cup — noticeably longer than it is wide — with a flat open rim.
+        let rimY = p.y - s * 1.35
+        let botY = p.y - s * 2.5
+        let halfW = s * 0.42
+        let cup = CGMutablePath()
+        cup.move(to: CGPoint(x: p.x - halfW, y: rimY))
+        cup.addLine(to: CGPoint(x: p.x - halfW, y: botY + s * 0.3))
+        cup.addQuadCurve(to: CGPoint(x: p.x, y: botY),
+                         control: CGPoint(x: p.x - halfW, y: botY))
+        cup.addQuadCurve(to: CGPoint(x: p.x + halfW, y: botY + s * 0.3),
+                         control: CGPoint(x: p.x + halfW, y: botY))
+        cup.addLine(to: CGPoint(x: p.x + halfW, y: rimY))
+        cup.closeSubpath()
+        ctx.addPath(cup)
+        ctx.setFillColor(CGColor(red: 0.62, green: 0.66, blue: 0.73, alpha: 1))
         ctx.fillPath()
-        // Distillate pooling in the bulb
+        ctx.addPath(cup)
+        ctx.setStrokeColor(CGColor(red: 0.38, green: 0.40, blue: 0.46, alpha: 1))
+        ctx.setLineWidth(max(s * 0.09, 1))
+        ctx.strokePath()
+        // Rim lip
+        ctx.setStrokeColor(CGColor(red: 0.80, green: 0.83, blue: 0.88, alpha: 1))
+        ctx.setLineWidth(max(s * 0.14, 1.2))
+        ctx.move(to: CGPoint(x: p.x - halfW - s * 0.06, y: rimY))
+        ctx.addLine(to: CGPoint(x: p.x + halfW + s * 0.06, y: rimY))
+        ctx.strokePath()
+        // Highlight streak on the wall
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.55))
+        ctx.setLineWidth(max(s * 0.12, 1))
+        ctx.move(to: CGPoint(x: p.x - s * 0.26, y: rimY - s * 0.2))
+        ctx.addLine(to: CGPoint(x: p.x - s * 0.26, y: botY + s * 0.3))
+        ctx.strokePath()
+        // Steam pouring off the rim: wisps rising, spreading, thinning out
+        for k in 0..<4 {
+            let f = (Double(tick) * (0.007 + Double(k) * 0.0017)
+                     + Double(k) * 0.27 + Double(p.x) * 0.002)
+                .truncatingRemainder(dividingBy: 1)
+            let side = k % 2 == 0 ? 1.0 : -1.0
+            let vx = p.x + side * s * (0.28 + 0.38 * f
+                                       + 0.06 * sin(f * 10 + Double(k) * 2))
+            let vy = rimY + s * (0.1 + f * 1.0)
+            let vw = s * (0.14 + 0.14 * f)
+            ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1,
+                                     alpha: 0.45 * (1 - f)))
+            ctx.fillEllipse(in: CGRect(x: vx - vw, y: vy - vw * 0.4,
+                                       width: vw * 2, height: vw * 0.8))
+        }
+        // The vacuum pump, seen from the side: pump head under the hose
+        // barb, finned motor cylinder behind it, feet, oil sight glass.
+        let headDark = CGColor(red: 0.16, green: 0.17, blue: 0.20, alpha: 1)
+        let motorGray = CGColor(red: 0.26, green: 0.28, blue: 0.33, alpha: 1)
+        let outline = CGColor(red: 0.45, green: 0.47, blue: 0.53, alpha: 1)
+        let head = CGRect(x: pumpC.x - s * 0.26, y: pumpC.y - s * 0.32,
+                          width: s * 0.52, height: s * 0.64)
+        let motor = CGRect(x: pumpC.x + s * 0.24, y: pumpC.y - s * 0.24,
+                           width: s * 0.75, height: s * 0.48)
+        // Feet first, so the body sits on them
+        ctx.setFillColor(headDark)
+        for fx in [head.minX + s * 0.06, motor.maxX - s * 0.16] {
+            ctx.fill(CGRect(x: fx, y: head.minY - s * 0.1,
+                            width: s * 0.12, height: s * 0.12))
+        }
+        // Motor with cooling fins
+        ctx.setFillColor(motorGray)
+        ctx.addPath(CGPath(roundedRect: motor, cornerWidth: s * 0.08,
+                           cornerHeight: s * 0.08, transform: nil))
+        ctx.fillPath()
+        ctx.setStrokeColor(headDark)
+        ctx.setLineWidth(max(s * 0.045, 0.6))
+        for i in 1...4 {
+            let fx = motor.minX + motor.width * Double(i) / 5
+            ctx.move(to: CGPoint(x: fx, y: motor.minY + s * 0.05))
+            ctx.addLine(to: CGPoint(x: fx, y: motor.maxY - s * 0.05))
+            ctx.strokePath()
+        }
+        // Pump head, hose barb on top, oil sight glass low on the side
+        ctx.setFillColor(headDark)
+        ctx.addPath(CGPath(roundedRect: head, cornerWidth: s * 0.06,
+                           cornerHeight: s * 0.06, transform: nil))
+        ctx.fillPath()
+        ctx.setStrokeColor(outline)
+        ctx.setLineWidth(max(s * 0.05, 0.7))
+        ctx.addPath(CGPath(roundedRect: head, cornerWidth: s * 0.06,
+                           cornerHeight: s * 0.06, transform: nil))
+        ctx.strokePath()
+        ctx.setStrokeColor(headDark)
+        ctx.setLineWidth(max(s * 0.16, 1.2))
+        ctx.move(to: CGPoint(x: pumpC.x, y: head.maxY))
+        ctx.addLine(to: CGPoint(x: pumpC.x, y: head.maxY + s * 0.14))
+        ctx.strokePath()
+        ctx.setFillColor(CGColor(red: 0.85, green: 0.62, blue: 0.25, alpha: 1))
+        let og = max(s * 0.06, 0.9)
+        ctx.fillEllipse(in: CGRect(x: head.maxX - s * 0.16 - og,
+                                   y: head.minY + s * 0.14 - og,
+                                   width: 2 * og, height: 2 * og))
+        // Power lamp on the motor end
+        ctx.setFillColor(CGColor(red: 0.3, green: 0.95, blue: 0.4, alpha: 1))
+        let lr = max(s * 0.04, 0.7)
+        ctx.fillEllipse(in: CGRect(x: motor.maxX - s * 0.1 - lr,
+                                   y: motor.maxY - s * 0.1 - lr,
+                                   width: 2 * lr, height: 2 * lr))
+    }
+
+    /// Manifold take-off on a straight run: a stubby down-tube with its own
+    /// stopcock and a round-bottom flask plumbed in underneath, stir bar
+    /// going — the line moonlighting as a Schlenk manifold.
+    private func drawManifold(_ ctx: CGContext, _ item: DrawItem) {
+        guard item.w > 5 else { return }
+        let dx = item.p2.x - item.p1.x, dy = item.p2.y - item.p1.y
+        let len = max(hypot(dx, dy), 0.001)
+        let u = CGVector(dx: dx / len, dy: dy / len)
+        var v = CGVector(dx: -u.dy, dy: u.dx)
+        if v.dy > 0 { v = CGVector(dx: -v.dx, dy: -v.dy) }  // flask hangs down
+        let pc = CGPoint(x: (item.p1.x + item.p2.x) / 2,
+                         y: (item.p1.y + item.p2.y) / 2)
+        let w = item.w
+        func at(_ a: Double, _ b: Double) -> CGPoint {
+            CGPoint(x: pc.x + u.dx * a + v.dx * b, y: pc.y + u.dy * a + v.dy * b)
+        }
+        ctx.setLineCap(.round)
+        // Take-off stub (clear glass)
+        ctx.setStrokeColor(shade(0, 0.42, alpha: 1, depth: item.depth))
+        ctx.setLineWidth(w * 0.6)
+        ctx.move(to: at(0, w * 0.3)); ctx.addLine(to: at(0, w * 1.7))
+        ctx.strokePath()
+        ctx.setStrokeColor(shade(0, 0.85, alpha: 1, depth: item.depth))
+        ctx.setLineWidth(w * 0.4)
+        ctx.move(to: at(0, w * 0.3)); ctx.addLine(to: at(0, w * 1.7))
+        ctx.strokePath()
+        // Stopcock on the stub
+        let red = CGColor(red: 0.82, green: 0.18, blue: 0.14, alpha: 1)
+        ctx.setStrokeColor(red)
+        ctx.setLineWidth(max(w * 0.2, 1.4))
+        ctx.move(to: at(0, w * 0.95)); ctx.addLine(to: at(w * 0.75, w * 0.95))
+        ctx.strokePath()
+        ctx.setLineWidth(max(w * 0.26, 1.7))
+        ctx.move(to: at(w * 0.75, w * 0.62)); ctx.addLine(to: at(w * 0.75, w * 1.28))
+        ctx.strokePath()
+        // Frosted joint where the flask hangs on
+        ctx.setStrokeColor(CGColor(red: 0.92, green: 0.94, blue: 0.96, alpha: 0.85))
+        ctx.setLineWidth(w * 0.7)
+        ctx.move(to: at(0, w * 1.45)); ctx.addLine(to: at(0, w * 1.75))
+        ctx.strokePath()
+        // Round-bottom flask with contents and a spinning stir bar
+        let fc = at(0, w * 2.55)
+        let r = w * 0.95
+        let rect = CGRect(x: fc.x - r, y: fc.y - r, width: 2 * r, height: 2 * r)
+        ctx.setFillColor(shade(0, 0.75, alpha: 0.96, depth: item.depth))
+        ctx.fillEllipse(in: rect)
         ctx.saveGState()
-        ctx.addEllipse(in: CGRect(x: p.x - s, y: p.y - s, width: 2 * s, height: 2 * s))
+        ctx.addEllipse(in: rect)
         ctx.clip()
-        ctx.setFillColor(shade((color + 2) % tints.count, 1.0, alpha: 0.95, depth: depth))
-        ctx.fill(CGRect(x: p.x - s, y: p.y - s, width: 2 * s, height: s * 0.85))
+        ctx.setFillColor(shade(item.color, 1.0, alpha: 0.95, depth: item.depth))
+        ctx.fill(CGRect(x: rect.minX, y: rect.minY,
+                        width: rect.width, height: r * 0.95))
+        let spin = cos(Double(tick) * 0.3 + Double(pc.x) * 0.07)
+        let half = r * 0.45 * max(abs(spin), 0.18)
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.92))
+        ctx.setLineWidth(max(r * 0.17, 1.2))
+        ctx.move(to: CGPoint(x: fc.x - half, y: fc.y - r * 0.6))
+        ctx.addLine(to: CGPoint(x: fc.x + half, y: fc.y - r * 0.6))
+        ctx.strokePath()
+        ctx.restoreGState()
+        ctx.addEllipse(in: rect)
+        ctx.setStrokeColor(shade(0, 0.4, alpha: 1, depth: item.depth))
+        ctx.setLineWidth(max(r * 0.12, 1))
+        ctx.strokePath()
+        // Glint
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.5))
+        ctx.setLineWidth(max(r * 0.09, 0.8))
+        ctx.addArc(center: fc, radius: r * 0.72,
+                   startAngle: 2.2, endAngle: 3.0, clockwise: false)
+        ctx.strokePath()
+    }
+
+    /// Glass stopcock plugged through a straight run: frosted barrel across
+    /// the tube, red plug stem sticking out with a T-grip — a little piece of
+    /// Schlenk manifold.
+    private func drawStopcock(_ ctx: CGContext, _ item: DrawItem) {
+        guard item.w > 4 else { return }
+        let dx = item.p2.x - item.p1.x, dy = item.p2.y - item.p1.y
+        let len = max(hypot(dx, dy), 0.001)
+        let u = CGVector(dx: dx / len, dy: dy / len)
+        var v = CGVector(dx: -u.dy, dy: u.dx)
+        if v.dy < 0 { v = CGVector(dx: -v.dx, dy: -v.dy) }  // handle points up
+        let pc = CGPoint(x: (item.p1.x + item.p2.x) / 2,
+                         y: (item.p1.y + item.p2.y) / 2)
+        let w = item.w
+        func at(_ a: Double, _ b: Double) -> CGPoint {
+            CGPoint(x: pc.x + u.dx * a + v.dx * b, y: pc.y + u.dy * a + v.dy * b)
+        }
+        ctx.setLineCap(.round)
+        // Frosted barrel crossing the tube
+        ctx.setStrokeColor(CGColor(red: 0.92, green: 0.94, blue: 0.96, alpha: 0.9))
+        ctx.setLineWidth(w * 0.55)
+        ctx.move(to: at(0, -w * 0.75)); ctx.addLine(to: at(0, w * 0.75))
+        ctx.strokePath()
+        // Red plug stem and T-grip
+        let red = CGColor(red: 0.82, green: 0.18, blue: 0.14, alpha: 1)
+        ctx.setStrokeColor(red)
+        ctx.setLineWidth(max(w * 0.22, 1.5))
+        ctx.move(to: at(0, w * 0.7)); ctx.addLine(to: at(0, w * 1.35))
+        ctx.strokePath()
+        ctx.setLineWidth(max(w * 0.3, 2))
+        ctx.move(to: at(-w * 0.5, w * 1.35)); ctx.addLine(to: at(w * 0.5, w * 1.35))
+        ctx.strokePath()
+        // Glint on the barrel
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.5))
+        ctx.setLineWidth(max(w * 0.12, 0.8))
+        ctx.move(to: at(-w * 0.1, -w * 0.4)); ctx.addLine(to: at(-w * 0.1, w * 0.4))
+        ctx.strokePath()
+    }
+
+    /// Schlenk flask hanging off the end of a run: frosted ground joint,
+    /// neck, round bulb with solvent and a spinning stir bar, and the
+    /// signature sidearm stopcock.
+    private func drawSchlenkFlask(_ ctx: CGContext, at p: CGPoint, s: Double,
+                                  color: Int, depth: Double) {
+        let bulbC = CGPoint(x: p.x, y: p.y - s * 1.35)
+        let bulbR = s
+        let neckW = max(s * 0.34, 2)
+        ctx.setLineCap(.round)
+        // Neck down from the pipe
+        ctx.setStrokeColor(shade(color, 0.6, alpha: 0.95, depth: depth))
+        ctx.setLineWidth(neckW)
+        ctx.move(to: p)
+        ctx.addLine(to: CGPoint(x: bulbC.x, y: bulbC.y + bulbR * 0.8))
+        ctx.strokePath()
+        // Sidearm angling off the neck, with its own little red stopcock
+        let armBase = CGPoint(x: p.x, y: p.y - s * 0.45)
+        let armEnd = CGPoint(x: p.x + s * 1.15, y: p.y - s * 0.1)
+        ctx.setLineWidth(neckW * 0.7)
+        ctx.move(to: armBase); ctx.addLine(to: armEnd); ctx.strokePath()
+        let red = CGColor(red: 0.82, green: 0.18, blue: 0.14, alpha: 1)
+        let armMid = CGPoint(x: (armBase.x + armEnd.x) / 2,
+                             y: (armBase.y + armEnd.y) / 2)
+        let plugTop = CGPoint(x: armMid.x + s * 0.18, y: armMid.y + s * 0.5)
+        ctx.setStrokeColor(red)
+        ctx.setLineWidth(max(s * 0.14, 1.2))
+        ctx.move(to: armMid); ctx.addLine(to: plugTop); ctx.strokePath()
+        ctx.setLineWidth(max(s * 0.18, 1.6))
+        ctx.move(to: CGPoint(x: plugTop.x - s * 0.28, y: plugTop.y - s * 0.06))
+        ctx.addLine(to: CGPoint(x: plugTop.x + s * 0.28, y: plugTop.y + s * 0.06))
+        ctx.strokePath()
+        // Bulb
+        let rect = CGRect(x: bulbC.x - bulbR, y: bulbC.y - bulbR,
+                          width: bulbR * 2, height: bulbR * 2)
+        ctx.setFillColor(shade(color, 0.75, alpha: 0.96, depth: depth))
+        ctx.fillEllipse(in: rect)
+        // Solvent pooling, stir bar whirling (its apparent length breathes)
+        ctx.saveGState()
+        ctx.addEllipse(in: rect)
+        ctx.clip()
+        ctx.setFillColor(shade((color + 2) % tints.count, 1.0, alpha: 0.95,
+                               depth: depth))
+        ctx.fill(CGRect(x: rect.minX, y: rect.minY,
+                        width: rect.width, height: bulbR * 0.9))
+        let spin = cos(Double(tick) * 0.35 + Double(p.x) * 0.05)
+        let half = s * 0.42 * max(abs(spin), 0.18)
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.92))
+        ctx.setLineWidth(max(s * 0.16, 1.4))
+        ctx.move(to: CGPoint(x: bulbC.x - half, y: bulbC.y - bulbR * 0.62))
+        ctx.addLine(to: CGPoint(x: bulbC.x + half, y: bulbC.y - bulbR * 0.62))
+        ctx.strokePath()
         ctx.restoreGState()
         // Outline
-        ctx.addPath(body)
+        ctx.addEllipse(in: rect)
         ctx.setStrokeColor(shade(color, 0.4, alpha: 1, depth: depth))
         ctx.setLineWidth(max(s * 0.12, 1.2))
         ctx.strokePath()
-        // Spout: off the dome shoulder, angling down like it means business
-        let sw = max(s * 0.3, 1.5)
-        let spoutStart = CGPoint(x: p.x + s * 0.62, y: p.y + s * 0.85)
-        let spoutMid = CGPoint(x: p.x + s * 1.6, y: p.y + s * 0.25)
-        let spoutEnd = CGPoint(x: p.x + s * 2.25, y: p.y - s * 0.75)
-        ctx.setLineCap(.round)
-        ctx.setStrokeColor(shade(color, 0.45, alpha: 1, depth: depth))
-        ctx.setLineWidth(sw)
-        ctx.move(to: spoutStart); ctx.addLine(to: spoutMid); ctx.strokePath()
-        ctx.setLineWidth(sw * 0.65)
-        ctx.move(to: spoutMid); ctx.addLine(to: spoutEnd); ctx.strokePath()
-        ctx.setStrokeColor(shade(color, 0.9, alpha: 1, depth: depth))
-        ctx.setLineWidth(sw * 0.45)
-        ctx.move(to: spoutStart); ctx.addLine(to: spoutMid)
-        ctx.addLine(to: spoutEnd); ctx.strokePath()
-        // The drip
-        let dr = s * 0.14
-        ctx.setFillColor(shade((color + 2) % tints.count, 1.1, alpha: 1, depth: depth))
-        ctx.fillEllipse(in: CGRect(x: spoutEnd.x - dr, y: spoutEnd.y - s * 0.45 - dr,
-                                   width: 2 * dr, height: 2.6 * dr))
-        // Glass glint on the bulb
+        // Frosted ground joint where flask meets pipe
+        ctx.setStrokeColor(CGColor(red: 0.92, green: 0.94, blue: 0.96, alpha: 0.85))
+        ctx.setLineWidth(neckW * 1.6)
+        ctx.move(to: CGPoint(x: p.x, y: p.y - s * 0.02))
+        ctx.addLine(to: CGPoint(x: p.x, y: p.y - s * 0.3))
+        ctx.strokePath()
+        // Glint on the bulb
         ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.55))
         ctx.setLineWidth(max(s * 0.09, 1))
-        ctx.addArc(center: p, radius: s * 0.72,
+        ctx.addArc(center: bulbC, radius: bulbR * 0.72,
                    startAngle: 2.2, endAngle: 3.0, clockwise: false)
+        ctx.strokePath()
+    }
+
+    /// Mineral-oil bubbler: the run's dip tube plunges into a little vessel
+    /// of amber oil and burps a steady stream of bubbles — the Schlenk
+    /// line's exhaust.
+    private func drawBubbler(_ ctx: CGContext, at p: CGPoint, s: Double,
+                             color: Int, depth: Double) {
+        let topY = p.y - s * 0.35
+        let botY = p.y - s * 1.75
+        let halfW = s * 0.52
+        ctx.setLineCap(.round)
+        // Glass vessel envelope
+        ctx.setStrokeColor(CGColor(red: 0.75, green: 0.85, blue: 0.95, alpha: 0.30))
+        ctx.setLineWidth(halfW * 2)
+        ctx.move(to: CGPoint(x: p.x, y: topY))
+        ctx.addLine(to: CGPoint(x: p.x, y: botY))
+        ctx.strokePath()
+        // Oil sitting in the bottom
+        ctx.setStrokeColor(CGColor(red: 0.85, green: 0.62, blue: 0.25, alpha: 0.85))
+        ctx.setLineWidth(halfW * 1.7)
+        ctx.move(to: CGPoint(x: p.x, y: botY + s * 0.72))
+        ctx.addLine(to: CGPoint(x: p.x, y: botY + s * 0.12))
+        ctx.strokePath()
+        // Dip tube from the line down into the oil
+        ctx.setStrokeColor(shade(color, 0.85, alpha: 1, depth: depth))
+        ctx.setLineWidth(max(s * 0.16, 1.2))
+        ctx.move(to: p)
+        ctx.addLine(to: CGPoint(x: p.x, y: botY + s * 0.22))
+        ctx.strokePath()
+        // Bubbles rising off the dip tube outlet
+        if s > 5 {
+            for k in 0..<3 {
+                let f = (Double(tick) * (0.011 + Double(k) * 0.002)
+                         + Double(k) * 0.37 + Double(p.x) * 0.004)
+                    .truncatingRemainder(dividingBy: 1)
+                let by = botY + s * 0.2 + f * s * 1.15
+                let bx = p.x + s * (0.16 + 0.09 * sin(f * 14 + Double(k) * 2))
+                let br = s * (0.055 + 0.045 * f)
+                ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1,
+                                         alpha: 0.75 * (1 - f * 0.4)))
+                ctx.fillEllipse(in: CGRect(x: bx - br, y: by - br,
+                                           width: br * 2, height: br * 2))
+            }
+        }
+        // Rim glint
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.4))
+        ctx.setLineWidth(max(s * 0.08, 1))
+        ctx.move(to: CGPoint(x: p.x - halfW * 0.7, y: topY + halfW))
+        ctx.addLine(to: CGPoint(x: p.x + halfW * 0.7, y: topY + halfW))
         ctx.strokePath()
     }
 

@@ -1,4 +1,4 @@
-SAVERS = FlyingFlasks GlasswarePipes LatticeMaze MystifyPolymers StoddartReef OrbitalBox SmilesRain
+SAVERS = FlyingFlasks GlasswarePipes LatticeMaze MystifyPolymers StoddartReef OrbitalBox SmilesRain CastawayChemist
 MIN = 11.0
 BUILD = build
 FRAMEWORKS = -framework ScreenSaver -framework AppKit
@@ -7,7 +7,7 @@ SHARED = Shared/Settings.swift
 all: $(foreach s,$(SAVERS),$(BUILD)/$(s).saver)
 
 define SAVER_template
-$(BUILD)/$(1).saver: $(1)/$(1).swift $(1)/Info.plist $(SHARED)
+$(BUILD)/$(1).saver: $(1)/$(1).swift $(1)/Info.plist $(SHARED) $(wildcard $(1)/Resources/*)
 	mkdir -p $(BUILD)/$(1).saver/Contents/MacOS
 	cp $(1)/Info.plist $(BUILD)/$(1).saver/Contents/Info.plist
 	swiftc -O -target arm64-apple-macos$(MIN) -module-name $(1) -emit-library \
@@ -16,6 +16,12 @@ $(BUILD)/$(1).saver: $(1)/$(1).swift $(1)/Info.plist $(SHARED)
 	    -o $(BUILD)/$(1)-x8664.dylib $(1)/$(1).swift $(SHARED) $(FRAMEWORKS)
 	lipo -create -output $(BUILD)/$(1).saver/Contents/MacOS/$(1) \
 	    $(BUILD)/$(1)-arm64.dylib $(BUILD)/$(1)-x8664.dylib
+	rm -rf $(BUILD)/$(1).saver/Contents/Resources
+	if [ -d $(1)/Resources ]; then \
+	    mkdir -p $(BUILD)/$(1).saver/Contents/Resources; \
+	    cp -R $(1)/Resources/ $(BUILD)/$(1).saver/Contents/Resources/; \
+	fi
+	xattr -cr $(BUILD)/$(1).saver
 	codesign --force --sign - $(BUILD)/$(1).saver
 	touch $(BUILD)/$(1).saver
 
@@ -50,7 +56,13 @@ app: all
 	for s in $(SAVERS); do \
 	    rm -rf $(APP)/Contents/Resources/Savers/$$s.saver; \
 	    cp -R $(BUILD)/$$s.saver $(APP)/Contents/Resources/Savers/; \
+	    rm -rf $(APP)/Contents/Resources/$$s; \
+	    if [ -d $$s/Resources ]; then \
+	        mkdir -p $(APP)/Contents/Resources/$$s; \
+	        cp -R $$s/Resources/ $(APP)/Contents/Resources/$$s/; \
+	    fi; \
 	done
+	xattr -cr $(APP)
 	codesign --force --sign - $(APP)/Contents/Frameworks/Sparkle.framework
 	codesign --force --sign - $(APP)
 

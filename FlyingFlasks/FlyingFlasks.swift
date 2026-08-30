@@ -2,7 +2,8 @@ import ScreenSaver
 
 // Flying Flasks — an After Dark "Flying Toasters" homage for chemists.
 // Winged Erlenmeyer flasks flap across a starfield, accompanied by drifting
-// NMR tubes (the toast) and the occasional round-bottom flask on bat wings.
+// NMR tubes (the toast) and round-bottom flasks on bat wings, stir bars
+// still going — the reaction waits for no one.
 
 private func rnd(_ r: ClosedRange<CGFloat>) -> CGFloat { CGFloat.random(in: r) }
 
@@ -84,7 +85,7 @@ public final class FlyingFlasksView: ScreenSaverView {
     private func makeFlyer(initial: Bool) -> Flyer {
         let w = max(bounds.width, 640), h = max(bounds.height, 400)
         let roll = CGFloat.random(in: 0...1)
-        let kind: FlyerKind = roll < 0.52 ? .erlenmeyer : (roll < 0.9 ? .nmrTube : .roundBottom)
+        let kind: FlyerKind = roll < 0.48 ? .erlenmeyer : (roll < 0.82 ? .nmrTube : .roundBottom)
         var f = Flyer(kind: kind,
                       x: 0, y: 0,
                       speed: rnd(2.0...4.2),
@@ -336,6 +337,19 @@ public final class FlyingFlasksView: ScreenSaverView {
         let liquid = NSColor(calibratedHue: f.hue, saturation: 0.75, brightness: 0.8, alpha: 0.92)
         ctx.setFillColor(liquid.cgColor)
         ctx.fill(CGRect(x: -18, y: -24, width: 36, height: 16))
+        // Stir bar going, mid-flight: its apparent length breathes as it
+        // whirls, seen side-on.
+        let spin = cos(t * 9 + f.flapPhase)
+        let half = 11 * max(abs(spin), 0.2)
+        ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.95))
+        ctx.setLineWidth(4)
+        ctx.setLineCap(.round)
+        ctx.move(to: CGPoint(x: -half, y: -17))
+        ctx.addLine(to: CGPoint(x: half, y: -17))
+        ctx.strokePath()
+        // Vortex dimple in the surface while the bar spins
+        ctx.setFillColor(CGColor(red: 0.012, green: 0.012, blue: 0.055, alpha: 0.35))
+        ctx.fillEllipse(in: CGRect(x: -6, y: -10, width: 12, height: 4))
         ctx.restoreGState()
         // Outlines
         ctx.setStrokeColor(CGColor(red: 0.92, green: 0.95, blue: 1.0, alpha: 0.9))

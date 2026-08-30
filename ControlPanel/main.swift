@@ -122,6 +122,7 @@ final class RetroSlider: NSView {
     var isInt: Bool
     var onLiveChange: (Double) -> Void = { _ in }
     var onCommit: (Double) -> Void = { _ in }
+    private(set) var lastEventWasDrag = false
     init(frame: NSRect, minV: Double, maxV: Double, value: Double, isInt: Bool) {
         self.minV = minV; self.maxV = maxV; self.value = value; self.isInt = isInt
         super.init(frame: frame)
@@ -152,8 +153,14 @@ final class RetroSlider: NSView {
         needsDisplay = true
         onLiveChange(v)
     }
-    override func mouseDown(with event: NSEvent) { setFromEvent(event) }
-    override func mouseDragged(with event: NSEvent) { setFromEvent(event) }
+    override func mouseDown(with event: NSEvent) {
+        lastEventWasDrag = false
+        setFromEvent(event)
+    }
+    override func mouseDragged(with event: NSEvent) {
+        lastEventWasDrag = true
+        setFromEvent(event)
+    }
     override func mouseUp(with event: NSEvent) { onCommit(value) }
 }
 
@@ -161,7 +168,7 @@ final class RetroList: NSView {
     var items: [String]
     var selected = 0
     var onSelect: (Int) -> Void = { _ in }
-    let rowH: CGFloat = 22
+    let rowH: CGFloat = 20
     init(frame: NSRect, items: [String]) {
         self.items = items
         super.init(frame: frame)
@@ -237,7 +244,9 @@ final class RootView: NSView {
                   color: .black)
         retroText("Chemistry screen savers", at: CGPoint(x: 16, y: 442),
                   bold: false, size: 11)
-        retroText("v1.1 \u{00A9} 1996 Gassensmith Labs", at: CGPoint(x: 16, y: 458),
+        let ver = (Bundle.main.infoDictionary?["CFBundleShortVersionString"]
+                       as? String) ?? "?"
+        retroText("v\(ver) \u{00A9} 1996 Gassensmith Labs", at: CGPoint(x: 16, y: 458),
                   bold: false, size: 11)
         retroText("All molecules biblically accurate.", at: CGPoint(x: 16, y: 474),
                   bold: false, size: 11)
@@ -274,12 +283,13 @@ let catalog: [Module] = [
                           kind: .slider(min: 4, max: 40, isInt: true), def: 15),
                OptionSpec(key: "drips", label: "Drip liquid", kind: .check, def: 1),
            ]),
-    Module(id: "GlasswarePipes", display: "Glassware Pipes",
+    Module(id: "GlasswarePipes", display: "Schlenk Pipes",
            make: { GlasswarePipesView(frame: $0, isPreview: $1)! },
            options: [
                OptionSpec(key: "speed", label: "Growth speed",
                           kind: .slider(min: 0.3, max: 3, isInt: false), def: 1),
-               OptionSpec(key: "alembics", label: "Alembics", kind: .check, def: 1),
+               OptionSpec(key: "alembics", label: "Fancy glassware",
+                          kind: .check, def: 1),
            ]),
     Module(id: "LatticeMaze", display: "Lattice Maze",
            make: { LatticeMazeView(frame: $0, isPreview: $1)! },
@@ -319,6 +329,13 @@ let catalog: [Module] = [
                           kind: .slider(min: 0.3, max: 3, isInt: false), def: 1),
                OptionSpec(key: "reveals", label: "Reveal names", kind: .check, def: 1),
            ]),
+    Module(id: "CastawayChemist", display: "Castaway Chemist",
+           make: { CastawayChemistView(frame: $0, isPreview: $1)! },
+           options: [
+               OptionSpec(key: "chaos", label: "Chaos",
+                          kind: .slider(min: 0.3, max: 3, isInt: false), def: 1),
+               OptionSpec(key: "quench", label: "NMR quenches", kind: .check, def: 1),
+           ]),
 ]
 
 // MARK: - App assembly
@@ -330,7 +347,8 @@ let winW: CGFloat = 720, winH: CGFloat = 540
 let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: winW, height: winH),
                    styleMask: [.titled, .closable, .miniaturizable],
                    backing: .buffered, defer: false)
-win.title = "After Dork 1.1"
+win.title = "After Dork "
+    + ((Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "")
 let root = RootView(frame: NSRect(x: 0, y: 0, width: winW, height: winH))
 win.contentView = root
 
@@ -339,7 +357,10 @@ var currentIdx = 0
 var previewView: ScreenSaverView?
 var optionViews: [NSView] = []
 
-let moduleList = RetroList(frame: NSRect(x: 14, y: 36, width: 194, height: 160),
+// List height derives from the catalog so a 9th module can't silently fall
+// off the bottom.
+let moduleList = RetroList(frame: NSRect(x: 14, y: 36, width: 194,
+                                         height: CGFloat(catalog.count) * 20 + 4),
                            items: catalog.map { $0.display })
 root.addSubview(moduleList)
 
@@ -381,6 +402,9 @@ func storeOption(_ module: Module, _ spec: OptionSpec, _ value: Double) {
 }
 
 func recreatePreview() {
+    // Stop the old view's animation timer or it keeps simulating (and
+    // allocating) forever after removal.
+    previewView?.stopAnimation()
     previewView?.removeFromSuperview()
     let v = catalog[currentIdx].make(previewHost.bounds, true)
     previewHost.addSubview(v)
@@ -514,6 +538,37 @@ func setDisplaySleepMinutes(_ minutes: Int) -> Bool {
 
 func fmtMinutes(_ m: Int) -> String { m == 0 ? "Never" : "\(m) min" }
 
+/// Backlight brightness (0-1) via the private DisplayServices framework —
+/// the nriley/brightness trick. No public API reaches the backlight on
+/// Apple Silicon, so we dlopen the framework out of the shared cache; if a
+/// symbol is missing on some future macOS this degrades to "n/a".
+private typealias DSGetBrightness =
+    @convention(c) (UInt32, UnsafeMutablePointer<Float>) -> Int32
+private typealias DSSetBrightness = @convention(c) (UInt32, Float) -> Int32
+
+let displayServices = dlopen(
+    "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices",
+    RTLD_NOW)
+// Symbols resolved once — not per drag event.
+private let dsGetBrightness: DSGetBrightness? = displayServices
+    .flatMap { dlsym($0, "DisplayServicesGetBrightness") }
+    .map { unsafeBitCast($0, to: DSGetBrightness.self) }
+private let dsSetBrightness: DSSetBrightness? = displayServices
+    .flatMap { dlsym($0, "DisplayServicesSetBrightness") }
+    .map { unsafeBitCast($0, to: DSSetBrightness.self) }
+
+func readBrightness() -> Float? {
+    guard let get = dsGetBrightness else { return nil }
+    var b: Float = 0
+    return get(CGMainDisplayID(), &b) == 0 ? b : nil
+}
+
+@discardableResult
+func setBrightness(_ v: Float) -> Bool {
+    guard let set = dsSetBrightness else { return false }
+    return set(CGMainDisplayID(), v) == 0
+}
+
 func monitorLabel(_ text: String, x: CGFloat, y: CGFloat, w: CGFloat,
                   right: Bool = false) -> NSTextField {
     let l = NSTextField(labelWithString: text)
@@ -527,10 +582,12 @@ func monitorLabel(_ text: String, x: CGFloat, y: CGFloat, w: CGFloat,
 
 var displaySleepNow = readDisplaySleepMinutes() ?? 0
 let idleMinutes = readIdleSeconds() / 60
-_ = monitorLabel("Start saver after:", x: 22, y: 226, w: 110)
-let saverValue = monitorLabel(fmtMinutes(idleMinutes), x: 132, y: 226, w: 70,
+// Row pitch is 38pt: 16pt label + 20pt slider with no overlap, so labels
+// never sit on the sliders' hit areas.
+_ = monitorLabel("Start saver after:", x: 22, y: 220, w: 110)
+let saverValue = monitorLabel(fmtMinutes(idleMinutes), x: 132, y: 220, w: 70,
                               right: true)
-let saverSlider = RetroSlider(frame: NSRect(x: 22, y: 246, width: 178, height: 22),
+let saverSlider = RetroSlider(frame: NSRect(x: 22, y: 238, width: 178, height: 20),
                               minV: 0, maxV: Double(max(60, idleMinutes)),
                               value: Double(idleMinutes), isInt: true)
 saverSlider.onLiveChange = { v in saverValue.stringValue = fmtMinutes(Int(v)) }
@@ -547,10 +604,10 @@ saverSlider.onCommit = { v in
 }
 root.addSubview(saverSlider)
 
-_ = monitorLabel("Display sleep after:", x: 22, y: 286, w: 110)
-let sleepValue = monitorLabel(fmtMinutes(displaySleepNow), x: 132, y: 286, w: 70,
+_ = monitorLabel("Display sleep after:", x: 22, y: 258, w: 110)
+let sleepValue = monitorLabel(fmtMinutes(displaySleepNow), x: 132, y: 258, w: 70,
                               right: true)
-let sleepSlider = RetroSlider(frame: NSRect(x: 22, y: 306, width: 178, height: 22),
+let sleepSlider = RetroSlider(frame: NSRect(x: 22, y: 276, width: 178, height: 20),
                               minV: 0, maxV: Double(max(60, displaySleepNow)),
                               value: Double(displaySleepNow), isInt: true)
 sleepSlider.onLiveChange = { v in sleepValue.stringValue = fmtMinutes(Int(v)) }
@@ -570,6 +627,41 @@ sleepSlider.onCommit = { v in
     }
 }
 root.addSubview(sleepSlider)
+
+_ = monitorLabel("Brightness:", x: 22, y: 296, w: 110)
+let brightValue = monitorLabel("n/a", x: 132, y: 296, w: 70, right: true)
+if let b0 = readBrightness() {
+    func fmtBrightness(_ v: Double) -> String {
+        Int(v) == 0 ? "Off" : "\(Int(v))%"
+    }
+    brightValue.stringValue = fmtBrightness(Double((b0 * 100).rounded()))
+    let brightSlider = RetroSlider(
+        frame: NSRect(x: 22, y: 314, width: 178, height: 20),
+        minV: 0, maxV: 100, value: Double((b0 * 100).rounded()), isInt: true)
+    // Tracks the drag live like the hardware brightness keys, but the live
+    // path floors at 2% so a mid-drag (or misaimed click) can never black
+    // the screen; only a deliberate DRAG released at 0 kills the backlight.
+    brightSlider.onLiveChange = { v in
+        setBrightness(max(Float(v), 2) / 100)
+        brightValue.stringValue = fmtBrightness(v)
+    }
+    brightSlider.onCommit = { v in
+        if Int(v) == 0 && !brightSlider.lastEventWasDrag {
+            // A stray click at the left edge is not consent for darkness.
+            brightSlider.value = 2
+            brightSlider.needsDisplay = true
+            setBrightness(0.02)
+            brightValue.stringValue = fmtBrightness(2)
+            statusLabel.stringValue = "Drag to 0 to switch the backlight off."
+            return
+        }
+        setBrightness(Float(v) / 100)
+        statusLabel.stringValue = Int(v) == 0
+            ? "Backlight off. The brightness key brings it back."
+            : "Brightness \(Int(v))%."
+    }
+    root.addSubview(brightSlider)
+}
 
 /// Tahoe's idle activation ignores the legacy moduleDict and reads the
 /// Wallpaper store instead, so "Set Screen Saver" must rewrite the store's
@@ -702,6 +794,7 @@ func endDemo() {
         NSEvent.removeMonitor(m)
         demoMonitor = nil
     }
+    for v in demoViews { v.stopAnimation() }
     demoViews = []
     for w in demoWindows { w.orderOut(nil) }
     demoWindows = []

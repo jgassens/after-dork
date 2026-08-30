@@ -3,13 +3,25 @@
     <channel>
         <title>AfterDork</title>
         <item>
+            <title>1.1</title>
+            <pubDate>Sat, 29 Aug 2026 20:16:40 -0500</pubDate>
+            <sparkle:version>110</sparkle:version>
+            <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.1/AfterDork-1.1.zip" length="2193700" type="application/octet-stream" sparkle:edSignature="Ujnj8/H+3anr9mhVGGsNMnOlNijzMWGvVLeaRAfiL6DcBjBZvor8/ZuSISclt+JPMBKbjUUSaD4uNaa97B8UCw=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.1/AfterDork110-100.delta" sparkle:deltaFrom="100" length="72890" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="GDXMpO0bZYLyImi7MSHrzIsMdf4sw8SwFSrZOj5aOCx2PuPF97j7JjAZqUUbrfG/bLiNUTsG0Lcu4AlJIuTxBw=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>1.0</title>
             <pubDate>Sat, 29 Aug 2026 14:24:05 -0500</pubDate>
             <sparkle:version>100</sparkle:version>
             <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.0/AfterDork-1.0.zip" length="2184001" type="application/octet-stream" sparkle:edSignature="PqcGGBpb0DJl8cCqtnMj90bETtvwltltkWJnV8k3etR9cie3UNDVA6yNLlw+QNPJwkug2Nyor5KNRhdHe8Q4Bg=="/>
+            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.1/AfterDork-1.0.zip" length="2184001" type="application/octet-stream" sparkle:edSignature="PqcGGBpb0DJl8cCqtnMj90bETtvwltltkWJnV8k3etR9cie3UNDVA6yNLlw+QNPJwkug2Nyor5KNRhdHe8Q4Bg=="/>
         </item>
     </channel>
 </rss>

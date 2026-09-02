@@ -3,13 +3,27 @@
     <channel>
         <title>AfterDork</title>
         <item>
+            <title>1.2.1</title>
+            <pubDate>Wed, 02 Sep 2026 13:27:49 -0500</pubDate>
+            <sparkle:version>121</sparkle:version>
+            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2.1/AfterDork-1.2.1.zip" length="3614699" type="application/octet-stream" sparkle:edSignature="CioS8Xg8QUjVUjkSnBcpsbx0xL+8UVtykJQzDpYS1y1uoIQlq2v+10G1NVOGIlqV1uHKlELNpfbkl97W+6GDDw=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2.1/AfterDork121-120.delta" sparkle:deltaFrom="120" length="47902" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="GNj6pfPwqh3DK8SzfFLk7xx1A7+ZJYzsV+kITJYLksX2I+QPeh6pJZYAth3hBWYPNMSgYm+x4HXDWpJzRKUoAg=="/>
+                <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2.1/AfterDork121-110.delta" sparkle:deltaFrom="110" length="840814" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="lAY77i2v+SUId92oDSG5ZHQds2IPB22kkGcsULTTUBIQZPIPyFVWwIq88Tb3RsE8QXiLwMHSEEz5X7oh/VERAw=="/>
+                <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2.1/AfterDork121-100.delta" sparkle:deltaFrom="100" length="865990" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="zPYFcpmM8e02g/+TIO+vgyqRF5u4Rawczzr7joOX1Etg1Jp0bo/pgFx6kpLeuHDtEGwqnCYeOxEHLmq/72HgDA=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>1.2</title>
             <pubDate>Sun, 30 Aug 2026 15:34:53 -0500</pubDate>
             <sparkle:version>120</sparkle:version>
             <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2/AfterDork-1.2.zip" length="3611227" type="application/octet-stream" sparkle:edSignature="nZWH6OnsQcxTrLTMrwr5nktbxT0V1p/OfKogiWihle3ic4klRiJZFdrKGdujPcUm6Xq2LZ/qmx6QK7foa5/rDg=="/>
+            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2.1/AfterDork-1.2.zip" length="3611227" type="application/octet-stream" sparkle:edSignature="nZWH6OnsQcxTrLTMrwr5nktbxT0V1p/OfKogiWihle3ic4klRiJZFdrKGdujPcUm6Xq2LZ/qmx6QK7foa5/rDg=="/>
             <sparkle:deltas>
                 <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2/AfterDork120-110.delta" sparkle:deltaFrom="110" length="838590" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="KbPpYhzj1o9k6TUy/7TON1EZPPSN2j3pS28X52GRdoDslZgOi9ePY4Qxwrwybrj1y5ekbQvjxsjABoHoJ+pkBQ=="/>
                 <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2/AfterDork120-100.delta" sparkle:deltaFrom="100" length="863010" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="JF4SZsAMB8XBJxwkKwvFKK3RxlZimqgjibumVnX2pR4k5Gye/EQAfEckXzESOC9c0oIMFk6QcfpPgfgvkZxuBw=="/>
@@ -22,19 +36,10 @@
             <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2/AfterDork-1.1.zip" length="2193700" type="application/octet-stream" sparkle:edSignature="Ujnj8/H+3anr9mhVGGsNMnOlNijzMWGvVLeaRAfiL6DcBjBZvor8/ZuSISclt+JPMBKbjUUSaD4uNaa97B8UCw=="/>
+            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2.1/AfterDork-1.1.zip" length="2193700" type="application/octet-stream" sparkle:edSignature="Ujnj8/H+3anr9mhVGGsNMnOlNijzMWGvVLeaRAfiL6DcBjBZvor8/ZuSISclt+JPMBKbjUUSaD4uNaa97B8UCw=="/>
             <sparkle:deltas>
                 <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.1/AfterDork110-100.delta" sparkle:deltaFrom="100" length="72890" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="GDXMpO0bZYLyImi7MSHrzIsMdf4sw8SwFSrZOj5aOCx2PuPF97j7JjAZqUUbrfG/bLiNUTsG0Lcu4AlJIuTxBw=="/>
             </sparkle:deltas>
-        </item>
-        <item>
-            <title>1.0</title>
-            <pubDate>Sat, 29 Aug 2026 14:24:05 -0500</pubDate>
-            <sparkle:version>100</sparkle:version>
-            <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2/AfterDork-1.0.zip" length="2184001" type="application/octet-stream" sparkle:edSignature="PqcGGBpb0DJl8cCqtnMj90bETtvwltltkWJnV8k3etR9cie3UNDVA6yNLlw+QNPJwkug2Nyor5KNRhdHe8Q4Bg=="/>
         </item>
     </channel>
 </rss>

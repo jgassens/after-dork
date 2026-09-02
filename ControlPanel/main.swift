@@ -557,16 +557,34 @@ private let dsSetBrightness: DSSetBrightness? = displayServices
     .flatMap { dlsym($0, "DisplayServicesSetBrightness") }
     .map { unsafeBitCast($0, to: DSSetBrightness.self) }
 
-func readBrightness() -> Float? {
+/// The display whose backlight we can actually drive. Asking only
+/// CGMainDisplayID() made the slider vanish the moment a Mac was docked
+/// with an external monitor as main (externals often report no brightness
+/// control, rc != 0). Prefer the built-in panel, else the first display
+/// DisplayServices answers for. Picked once at launch.
+private func controllableDisplay() -> CGDirectDisplayID? {
     guard let get = dsGetBrightness else { return nil }
+    var ids = [CGDirectDisplayID](repeating: 0, count: 16)
+    var count: UInt32 = 0
+    CGGetOnlineDisplayList(16, &ids, &count)
     var b: Float = 0
-    return get(CGMainDisplayID(), &b) == 0 ? b : nil
+    return ids[0..<Int(count)]
+        .sorted { (CGDisplayIsBuiltin($0) != 0 ? 0 : 1)
+                < (CGDisplayIsBuiltin($1) != 0 ? 0 : 1) }
+        .first { get($0, &b) == 0 }
+}
+private let brightnessDisplay = controllableDisplay()
+
+func readBrightness() -> Float? {
+    guard let get = dsGetBrightness, let id = brightnessDisplay else { return nil }
+    var b: Float = 0
+    return get(id, &b) == 0 ? b : nil
 }
 
 @discardableResult
 func setBrightness(_ v: Float) -> Bool {
-    guard let set = dsSetBrightness else { return false }
-    return set(CGMainDisplayID(), v) == 0
+    guard let set = dsSetBrightness, let id = brightnessDisplay else { return false }
+    return set(id, v) == 0
 }
 
 func monitorLabel(_ text: String, x: CGFloat, y: CGFloat, w: CGFloat,
@@ -628,9 +646,14 @@ sleepSlider.onCommit = { v in
 }
 root.addSubview(sleepSlider)
 
-_ = monitorLabel("Brightness:", x: 22, y: 296, w: 110)
+let brightTitle = monitorLabel("Brightness:", x: 22, y: 296, w: 110)
 let brightValue = monitorLabel("n/a", x: 132, y: 296, w: 70, right: true)
 if let b0 = readBrightness() {
+    // Docked: the slider drives the laptop's own panel, so say so.
+    if let id = brightnessDisplay, CGDisplayIsBuiltin(id) != 0,
+       id != CGMainDisplayID() {
+        brightTitle.stringValue = "Laptop brightness:"
+    }
     func fmtBrightness(_ v: Double) -> String {
         Int(v) == 0 ? "Off" : "\(Int(v))%"
     }

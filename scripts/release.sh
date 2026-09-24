@@ -45,8 +45,14 @@ if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
   gh release upload "v$VERSION" "$ZIP" --clobber --repo "$REPO"
 else
   gh release create "v$VERSION" "$ZIP" --repo "$REPO" \
-    --title "After Dork $VERSION" \
-    --notes "Chemistry screen savers like it's 1996. Download, unzip, and open After Dork.app."
+    --title "After Dork $VERSION for Mac" \
+    --notes "## 🍎 After Dork $VERSION for **Mac**
+
+**This is the macOS version** (\`AfterDork-$VERSION.zip\` contains *After Dork.app*).
+
+> 🪟 **On Windows?** This download won't run on your PC. Get **[After Dork for Windows](https://github.com/$REPO/releases?q=windows&expanded=true)** instead.
+
+Chemistry screen savers like it's 1996. Download, unzip, and open After Dork.app."
 fi
 
 echo "== Appcast =="

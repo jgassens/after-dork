@@ -23,7 +23,7 @@ You do not need to know what a "git" is. Follow these steps precisely and
 nobody gets hurt:
 
 1. **[Click here](https://github.com/jgassens/after-dork/releases/latest).**
-   That's the latest release page.
+   That's the latest Mac release page. (On Windows? [Skip to Windows](#on-windows).)
 2. Under **Assets**, click the file called `AfterDork-<version>.zip`. It will
    download. This is the entire crime, about 2 MB. Your phone's photo of last
    night's dinner is larger.

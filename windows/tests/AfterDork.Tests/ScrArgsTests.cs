@@ -19,24 +19,24 @@ public class ScrArgsTests
     }
 
     [Theory]
-    [InlineData(new[] { "/p", "1234" })]
-    [InlineData(new[] { "/p:1234" })]
-    [InlineData(new[] { "/P", "1234" })]
-    [InlineData(new[] { "-p", "1234" })]
-    public void PreviewCarriesHwnd(string[] a)
+    [InlineData("/p|1234")]
+    [InlineData("/p:1234")]
+    [InlineData("/P|1234")]
+    [InlineData("-p|1234")]
+    public void PreviewCarriesHwnd(string a)
     {
-        var r = ScrArgs.Parse(a, Scr);
+        var r = ScrArgs.Parse(a.Split('|'), Scr);
         Assert.Equal(ScrMode.Preview, r.Mode);
         Assert.Equal(1234, r.Hwnd);
     }
 
     [Theory]
-    [InlineData(new[] { "/c" }, 0)]
-    [InlineData(new[] { "/c:5678" }, 5678)]
-    [InlineData(new[] { "/C", "5678" }, 5678)]
-    public void ConfigureMode(string[] a, long hwnd)
+    [InlineData("/c", 0)]
+    [InlineData("/c:5678", 5678)]
+    [InlineData("/C|5678", 5678)]
+    public void ConfigureMode(string a, long hwnd)
     {
-        var r = ScrArgs.Parse(a, Scr);
+        var r = ScrArgs.Parse(a.Split('|'), Scr);
         Assert.Equal(ScrMode.Configure, r.Mode);
         Assert.Equal(hwnd, r.Hwnd);
     }

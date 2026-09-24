@@ -5,13 +5,16 @@ using System.Text.Json;
 namespace AfterDork;
 
 /// <summary>
-/// Stands in for Sparkle: asks GitHub for the latest release and offers the
-/// Windows download if it's newer than this build. The control panel checks
-/// once a day at launch (quietly) and whenever "Updates…" is pressed.
+/// Stands in for Sparkle. Windows builds ship as their own GitHub releases
+/// (tagged windows-v1.2.3, never marked "latest" so the Mac download links
+/// keep working), so this lists recent releases, finds the newest one that
+/// carries a Windows download, and offers it if it's newer than this build.
+/// The control panel checks once a day at launch (quietly) and whenever
+/// "Updates…" is pressed.
 /// </summary>
 public static class Updater
 {
-    public const string ReleasesApi = "https://api.github.com/repos/jgassens/after-dork/releases/latest";
+    public const string ReleasesApi = "https://api.github.com/repos/jgassens/after-dork/releases?per_page=30";
 
     public enum Outcome { UpToDate, UpdateAvailable, NoWindowsBuild, Failed }
 
@@ -56,17 +59,38 @@ public static class Updater
             || n.EndsWith(".msi") || n.EndsWith(".exe");
     }
 
-    /// <summary>Decides what a GitHub release JSON means for this build.</summary>
-    public static Check Evaluate(JsonElement release, Version current)
+    /// <summary>"windows-v1.3.0", "v1.3", "1.3.0" → 1.3.0.</summary>
+    public static Version? ParseTag(string tag)
     {
-        string tag = release.TryGetProperty("tag_name", out var t) ? t.GetString() ?? "" : "";
-        string page = release.TryGetProperty("html_url", out var h) ? h.GetString() ?? "" : "";
-        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var latest))
-            return new Check(Outcome.Failed, current, null, page, $"Unrecognised release tag “{tag}”.");
-        latest = new Version(latest.Major, latest.Minor, Math.Max(0, latest.Build));
-        bool hasWindows = release.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array
-            && assets.EnumerateArray().Any(a => a.TryGetProperty("name", out var n) && IsWindowsAsset(n.GetString() ?? ""));
-        if (latest <= current) return new Check(Outcome.UpToDate, current, latest, page, null);
-        return new Check(hasWindows ? Outcome.UpdateAvailable : Outcome.NoWindowsBuild, current, latest, page, null);
+        var t = tag.Trim();
+        int i = t.IndexOfAny("0123456789".ToCharArray());
+        if (i < 0 || !Version.TryParse(t[i..], out var v)) return null;
+        return new Version(v.Major, v.Minor, Math.Max(0, v.Build));
+    }
+
+    /// <summary>
+    /// Decides what GitHub's release list (or a single release object) means
+    /// for this build: the newest published, non-prerelease release that has
+    /// a Windows asset wins.
+    /// </summary>
+    public static Check Evaluate(JsonElement releases, Version current)
+    {
+        IEnumerable<JsonElement> all = releases.ValueKind == JsonValueKind.Array ? releases.EnumerateArray() : [releases];
+        Version? best = null;
+        string? page = null;
+        foreach (var r in all)
+        {
+            if (r.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True) continue;
+            if (r.TryGetProperty("prerelease", out var p) && p.ValueKind == JsonValueKind.True) continue;
+            bool hasWindows = r.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array
+                && assets.EnumerateArray().Any(a => a.TryGetProperty("name", out var n) && IsWindowsAsset(n.GetString() ?? ""));
+            if (!hasWindows) continue;
+            var v = ParseTag(r.TryGetProperty("tag_name", out var t) ? t.GetString() ?? "" : "");
+            if (v is null || (best is not null && v <= best)) continue;
+            best = v;
+            page = r.TryGetProperty("html_url", out var h) ? h.GetString() : null;
+        }
+        if (best is null) return new Check(Outcome.NoWindowsBuild, current, null, null, null);
+        return new Check(best > current ? Outcome.UpdateAvailable : Outcome.UpToDate, current, best, page, null);
     }
 }

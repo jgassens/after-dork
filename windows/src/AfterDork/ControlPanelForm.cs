@@ -262,7 +262,7 @@ internal sealed class ControlPanelForm : Form
                     Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
                 break;
             case Updater.Outcome.NoWindowsBuild when manual:
-                Status($"{r.Latest?.ToString(3)} is out for Mac; no Windows build yet.");
+                Status("No Windows release published yet.");
                 break;
             case Updater.Outcome.UpToDate when manual:
                 Status($"You're up to date ({r.Current.ToString(3)}).");

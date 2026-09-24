@@ -39,17 +39,36 @@ if ($Test) {
     Invoke-Dotnet test (Join-Path $root 'tests\AfterDork.Tests') -c $Configuration
 }
 
-if ($Publish -or $Install) {
-    if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
-    Invoke-Dotnet publish (Join-Path $root 'src\AfterDork') -c $Configuration -o $dist -p:DebugType=None
+function Publish-Variant([string]$out, [bool]$selfContained) {
+    if (Test-Path $out) { Remove-Item -Recurse -Force $out }
+    Invoke-Dotnet publish (Join-Path $root 'src\AfterDork') -c $Configuration -o $out -r win-x64 `
+        --self-contained $selfContained.ToString().ToLower() -p:DebugType=None -p:SatelliteResourceLanguages=en
+    # Native debug symbols (libSkiaSharp.pdb is 80 MB) have no place in a download.
+    Get-ChildItem $out -Recurse -Include *.pdb, Microsoft.DiaSymReader.Native.*.dll | Remove-Item -Force
+    Copy-Item (Join-Path $root 'dist-readme.txt') (Join-Path $out 'README.txt')
     # Each .scr is a copy of the launcher: it starts AfterDork.dll beside it,
     # and its file name selects the module.
-    foreach ($m in $modules) { Copy-Item (Join-Path $dist 'AfterDork.exe') (Join-Path $dist "$m.scr") -Force }
-    $version = (Get-Item (Join-Path $dist 'AfterDork.dll')).VersionInfo.ProductVersion -replace '\+.*$', ''
-    $zip = Join-Path $root "dist\AfterDork-$version-Windows.zip"
+    foreach ($m in $modules) { Copy-Item (Join-Path $out 'AfterDork.exe') (Join-Path $out "$m.scr") -Force }
+}
+
+function New-Zip([string]$folder, [string]$zip) {
     if (Test-Path $zip) { Remove-Item $zip }
-    Compress-Archive -Path "$dist\*" -DestinationPath $zip
-    Write-Host "Published $dist and $zip"
+    Compress-Archive -Path "$folder\*" -DestinationPath $zip -CompressionLevel Optimal
+    Write-Host ("  {0} ({1:N1} MB)" -f $zip, ((Get-Item $zip).Length / 1MB))
+}
+
+if ($Publish -or $Install) {
+    # Self-contained: works on any 64-bit Windows 10/11 PC, nothing else to install.
+    Publish-Variant $dist $true
+    $version = (Get-Item (Join-Path $dist 'AfterDork.dll')).VersionInfo.ProductVersion -replace '\+.*$', ''
+    Write-Host "Published $dist"
+    New-Zip $dist (Join-Path $root "dist\AfterDork-$version-Windows.zip")
+    if ($Publish) {
+        # Small variant for PCs that already have the .NET 8 Desktop Runtime.
+        $small = Join-Path $root 'dist\AfterDork-small'
+        Publish-Variant $small $false
+        New-Zip $small (Join-Path $root "dist\AfterDork-$version-Windows-small-needs-dotnet8.zip")
+    }
 }
 
 if ($Install) {

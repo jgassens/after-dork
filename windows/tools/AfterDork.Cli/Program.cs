@@ -92,6 +92,13 @@ switch (cmd)
         }
         return failures == 0 ? 0 : 1;
     }
+    case "icon" when pos.Count >= 1:
+    {
+        AfterDork.Cli.IconArt.WriteIco(pos[0], [16, 20, 24, 32, 40, 48, 64, 128, 256]);
+        File.WriteAllBytes(Path.ChangeExtension(pos[0], ".png"), AfterDork.Cli.IconArt.RenderPng(256));
+        Console.WriteLine($"icon written to {pos[0]}");
+        return 0;
+    }
     default:
         return Usage();
 }

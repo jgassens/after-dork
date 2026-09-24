@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>AfterDork</AssemblyName>
+    <RootNamespace>AfterDork.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <AssemblyTitle>After Dork</AssemblyTitle>
+    <ApplicationIcon Condition="Exists('AfterDork.ico')">AfterDork.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AfterDork.Core\AfterDork.Core.csproj" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('AfterDork.ico')">
+    <EmbeddedResource Include="AfterDork.ico" LogicalName="AfterDork.ico" />
+  </ItemGroup>
+</Project>

@@ -20,6 +20,9 @@ internal static partial class Native
     [LibraryImport("user32.dll")]
     public static partial uint GetDpiForWindow(IntPtr hWnd);
 
+    [LibraryImport("user32.dll")]
+    public static partial int GetMessageTime();
+
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT { public int Left, Top, Right, Bottom; }
 

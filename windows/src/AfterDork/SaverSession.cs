@@ -14,6 +14,7 @@ internal sealed class SaverSession
 
     readonly List<SaverForm> forms = [];
     readonly Stopwatch since = Stopwatch.StartNew();
+    readonly int startTick = Environment.TickCount;
     readonly double graceSeconds;
     readonly Action onEnded;
     Point? mouseStart;
@@ -47,8 +48,11 @@ internal sealed class SaverSession
 
     internal void OnInput(string why)
     {
-        Trace($"input {why} at {since.Elapsed.TotalSeconds:0.000}s{(ended ? " (already ended)" : "")}");
-        if (ended || since.Elapsed.TotalSeconds < graceSeconds) return;
+        // Judge the grace period by when the input happened (the message's
+        // timestamp), not by when a busy first frame let us get to it.
+        double at = unchecked(Native.GetMessageTime() - startTick) / 1000.0;
+        Trace($"input {why} at {at:0.000}s (handled {since.Elapsed.TotalSeconds:0.000}s){(ended ? " (already ended)" : "")}");
+        if (ended || at < graceSeconds) return;
         Trace($"ending: {why}");
         End();
     }

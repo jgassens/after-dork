@@ -282,6 +282,47 @@ public class GraphicsTests
     }
 
     [Fact]
+    public void LayerDrawsUprightAtDestinationResolution()
+    {
+        using var c = new BitmapContext(S, S);
+        c.ScaleBy(2, 2);  // a 2x "Retina" destination: 50x50 points
+        using var layer = new CGLayer(c, new CGSize(50, 50));
+        Assert.Equal(2, layer.Scale, 9);
+        Assert.True(layer.IsCompatible(c));
+        var lc = layer.Context;
+        lc.SetFillColor(new CGColor(1, 0, 0));
+        lc.Fill(new CGRect(0, 25, 50, 25));        // top half red, in layer points
+        lc.SetShouldAntialias(false);
+        lc.Fill(new CGRect(0.5, 0.5, 0.5, 0.5));  // half-point square: needs 2x pixels
+        c.Draw(layer, CGPoint.Zero);
+        Assert.Equal(255, Red(At(c, 50, 75)));
+        Assert.False(Inked(c, 50, 25));
+        Assert.True(Inked(c, 1, 1));    // the square is exactly device pixel (1,1)
+        Assert.False(Inked(c, 0, 0));
+        Assert.False(Inked(c, 2, 2));
+        // A second draw after more drawing sees the new content (no stale snapshot).
+        lc.Fill(new CGRect(0, 0, 10, 10));
+        c.Draw(layer, CGPoint.Zero);
+        Assert.Equal(255, Red(At(c, 10, 10)));
+    }
+
+    [Fact]
+    public void LayerContextKeepsStateAndIsIncompatibleAtOtherScales()
+    {
+        using var c1 = new BitmapContext(S, S);
+        using var layer = new CGLayer(c1, new CGSize(S, S));
+        using var c2 = new BitmapContext(S, S);
+        c2.ScaleBy(1.5, 1.5);
+        Assert.False(layer.IsCompatible(c2));
+        layer.Context.SetFillColor(new CGColor(0, 0, 1));
+        layer.Context.Fill(new CGRect(0, 0, 10, 10));
+        layer.Context.Fill(new CGRect(20, 20, 10, 10));  // fill colour persisted
+        c1.Draw(layer, new CGPoint(5, 0));
+        Assert.Equal(255, Blue(At(c1, 26, 25)));
+        Assert.False(Inked(c1, 2, 2));  // shifted right by 5 points
+    }
+
+    [Fact]
     public void RectAccessorsStandardize()
     {
         var r = new CGRect(10, 10, -4, 6);

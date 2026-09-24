@@ -10,7 +10,7 @@ namespace AfterDork.App;
 /// view's bounds are in logical points (pixels ÷ DPI scale), like a Retina
 /// ScreenSaverView, so savers look the same size as on the Mac.
 /// </summary>
-internal sealed class SaverSurface : Control
+internal class SaverSurface : Control
 {
     SKBitmap? bitmap;
     SKCanvas? canvas;

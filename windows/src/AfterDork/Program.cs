@@ -32,7 +32,7 @@ internal static class Program
                 return 0;
             }
             case ScrMode.Preview:
-                Application.Run(new PreviewForm(new IntPtr(a.Hwnd), module));
+                using (var preview = new PreviewWindow(new IntPtr(a.Hwnd), module)) preview.Run();
                 return 0;
             case ScrMode.SnapshotPanel:
                 return SnapshotPanel(a, module);

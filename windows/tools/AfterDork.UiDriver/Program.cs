@@ -81,6 +81,22 @@ switch (args[0])
         return 0;
     }
 
+    case "pidwindows":
+    {
+        uint pid = uint.Parse(args[1]);
+        EnumWindows((h, _) =>
+        {
+            GetWindowThreadProcessId(h, out uint p);
+            if (p != pid) return true;
+            GetWindowRect(h, out var wr);
+            var cls = new StringBuilder(256);
+            GetClassName(h, cls, 256);
+            Console.WriteLine($"top hwnd={h} class={cls} title=\"{Title(h)}\" rect=({wr.L},{wr.T},{wr.R - wr.L},{wr.B - wr.T}) visible={IsWindowVisible(h)} parent={GetParent(h)}");
+            return true;
+        }, IntPtr.Zero);
+        return 0;
+    }
+
     case "move":
         SetCursorPos(I(1), I(2));
         Mouse(0x0001, 0);  // a real move event at the new position
@@ -151,7 +167,9 @@ switch (args[0])
 
     case "startsaver":
         // DefWindowProc starts the configured screen saver on SC_SCREENSAVE.
-        PostMessage(GetDesktopWindow(), 0x0112, 0xF140, 0);
+        // startsaver [window-title]: send it to that window (else the desktop).
+        var target = args.Length > 1 ? FindWindows(args[1]).FirstOrDefault() : GetDesktopWindow();
+        PostMessage(target == IntPtr.Zero ? GetDesktopWindow() : target, 0x0112, 0xF140, 0);
         return 0;
 
     default:
@@ -215,6 +233,8 @@ static void Key(ushort vk, bool up)
 [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr h);
 [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint msg, nint w, nint l);
 [DllImport("user32.dll")] static extern IntPtr GetDesktopWindow();
+[DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+[DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr h);
 
 delegate bool EnumProc(IntPtr h, IntPtr l);
 

@@ -26,7 +26,16 @@ internal static partial class Native
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT { public int Left, Top, Right, Bottom; }
 
+    public const int GWL_STYLE = -16;
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    public static partial int GetWindowLong(IntPtr hWnd, int index);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongW")]
+    public static partial int SetWindowLong(IntPtr hWnd, int index, int value);
+
     public const int WS_CHILD = 0x40000000;
+    public const int WS_CLIPSIBLINGS = 0x04000000;
     public const int WS_VISIBLE = 0x10000000;
     public const int WS_POPUP = unchecked((int)0x80000000);
     public const int WS_EX_TOOLWINDOW = 0x00000080;

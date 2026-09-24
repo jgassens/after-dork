@@ -1,6 +1,7 @@
 # After Dork
 
 **Chemistry screen savers for the Macintosh, arriving a mere thirty years late.**
+*Now also for Windows — [see below](#on-windows).*
 
 In 1996, After Dark gave the world flying toasters and we, as a civilisation,
 peaked. Everything since has been decline management. After Dork is an attempt
@@ -44,6 +45,28 @@ yourself.
 
 Updates install themselves automatically (via Sparkle), so once it's on your
 machine it will quietly improve over time, and honestly? That's rare.
+
+### On Windows
+
+Yes, really. All eight modules and the bevelled control panel, now on
+Windows 10 and 11, thirty years late on two platforms at once.
+
+1. **[Click here](https://github.com/jgassens/after-dork/releases/tag/windows-v1.2.1).**
+   That's the Windows release page. (The "latest release" link above is the
+   Mac one. They are separate releases, like the chemists.)
+2. Under **Assets**, click `AfterDork-<version>-Windows.zip`. It's about
+   66 MB, because it brings its own runtime and needs nothing else installed.
+   If you already have the .NET 8 Desktop Runtime, the `-small` zip is 6 MB.
+3. Right-click the zip, choose **Extract All**, and open **AfterDork.exe**.
+4. Windows will announce that it "protected your PC", because the app is not
+   code-signed. Click **More info**, then **Run anyway**. The molecules are
+   unsigned but sincere.
+5. Pick a module, fiddle the sliders, and press **Demo** or **Set Screen
+   Saver**, exactly as above.
+
+Requirements: 64-bit Windows 10 or 11. Updates are not automatic on Windows:
+press **Updates…** in the control panel and it will check for a newer
+Windows release.
 
 ---
 

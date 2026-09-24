@@ -1,8 +1,10 @@
-**After Dork for Windows.** All eight chemistry screen savers and the retro control panel, now on Windows 10 and 11.
+## 🪟 After Dork 1.2.1 for **Windows**
 
-> **Looking for the Mac version?** It's the [latest release](https://github.com/jgassens/after-dork/releases/latest). This page is for Windows only.
+**This is the Windows version** for 64-bit Windows 10 and 11. It has all eight chemistry screen savers and the retro control panel.
 
-## Download
+> 🍎 **On a Mac?** These downloads won't run on your Mac. Get **[After Dork for Mac](https://github.com/jgassens/after-dork/releases/latest)** instead.
+
+## Download (Windows)
 
 | File | Use it if… |
 |---|---|

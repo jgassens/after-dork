@@ -41,14 +41,24 @@ internal sealed class SaverSession
         s.forms.FirstOrDefault(f => f.IsPrimary)?.Activate();
         s.mouseStart = Cursor.Position;
         Cursor.Hide();
+        Trace($"started {module.Id} on {s.forms.Count} screen(s)");
         return s;
     }
 
     internal void OnInput(string why)
     {
+        Trace($"input {why} at {since.Elapsed.TotalSeconds:0.000}s{(ended ? " (already ended)" : "")}");
         if (ended || since.Elapsed.TotalSeconds < graceSeconds) return;
-        Debug.WriteLine($"saver ending: {why}");
+        Trace($"ending: {why}");
         End();
+    }
+
+    /// <summary>Set AFTERDORK_TRACE to a file path to log why sessions end (for testing).</summary>
+    internal static void Trace(string line)
+    {
+        if (Environment.GetEnvironmentVariable("AFTERDORK_TRACE") is not { Length: > 0 } path) return;
+        try { File.AppendAllText(path, $"{DateTime.Now:HH:mm:ss.fff} [{Environment.ProcessId}] {line}{Environment.NewLine}"); }
+        catch (IOException) { }
     }
 
     internal void OnMouseMove()

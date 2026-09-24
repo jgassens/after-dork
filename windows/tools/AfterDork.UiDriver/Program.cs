@@ -127,6 +127,28 @@ switch (args[0])
         return 0;
     }
 
+    case "on-trace":
+    {
+        // on-trace <file> <text> <delayMs> <VK> : wait until <file> contains <text>
+        // (appearing after this command starts), then press <VK> after delayMs.
+        string file = args[1], text = args[2];
+        int skip = File.Exists(file) ? File.ReadAllText(file).Length : 0;
+        var sw = Stopwatch.StartNew();
+        while (sw.Elapsed.TotalSeconds < 30)
+        {
+            string all = File.Exists(file) ? ReadShared(file) : "";
+            if (all.Length > skip && all[skip..].Contains(text)) break;
+            Thread.Sleep(5);
+        }
+        Thread.Sleep(I(3));
+        ushort vk = (ushort)Enum.Parse<Keys>(args[4], true);
+        Key(vk, false);
+        Thread.Sleep(30);
+        Key(vk, true);
+        Console.WriteLine($"pressed {args[4]} {I(3)} ms after \"{text}\"");
+        return 0;
+    }
+
     case "startsaver":
         // DefWindowProc starts the configured screen saver on SC_SCREENSAVE.
         PostMessage(GetDesktopWindow(), 0x0112, 0xF140, 0);
@@ -135,6 +157,17 @@ switch (args[0])
     default:
         Console.Error.WriteLine($"unknown command {args[0]}");
         return 2;
+}
+
+static string ReadShared(string path)
+{
+    try
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var sr = new StreamReader(fs);
+        return sr.ReadToEnd();
+    }
+    catch (IOException) { return ""; }
 }
 
 static string R(Rectangle r) => $"({r.X},{r.Y},{r.Width},{r.Height})";

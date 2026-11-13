@@ -56,6 +56,10 @@ else
 
 Fixes duplicate animation timers in live previews and demos, restoring the intended animation rate and stopping callbacks when a preview closes.
 
+Stoddart Reef now stops its animation timer when a view detaches from its window, preventing orphaned views from being retained by those timers after display or preview changes.
+
+After updating, select Stoddart Reef in After Dork and click **Set Screen Saver** once to refresh the installed module.
+
 Chemistry screen savers like it's 1996. Download, unzip, and open After Dork.app."
 fi
 

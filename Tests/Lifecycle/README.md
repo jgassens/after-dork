@@ -1,0 +1,7 @@
+Run `sh Tests/Lifecycle/run.sh` in a logged-in macOS GUI session with Xcode command-line tools available. The test creates a small hidden window in its own process, does not activate it, and exits after a few seconds.
+
+The regression reproduces ScreenSaverView retaining detached views through its animation timer. It compares the original framework behavior with LifecycleScreenSaverView, checks weak references and timer/frame callback counts, and exercises the real StoddartReef class in both preview and full-size modes. It also checks resume on reattachment, explicit stop before or during detachment, duplicate detach notifications, start before attachment, and manual frame stepping.
+
+Only the test probes intercept the framework's private `_oneStep:` selector, forwarding to the original implementation to count actual timer callbacks separately from `animateOneFrame`. Production code uses public lifecycle APIs exclusively. This diagnostic instrumentation may need adjustment if Apple changes that private selector. No installed saver or host process is altered.
+
+In the tested macOS framework, detached original timers keep waking while skipping animation frames. Twelve removals retained twelve original views and produced 60 timer callbacks in 0.35 seconds, with zero animation frames. The fixed probes retained zero views and produced zero timer callbacks. Twelve real StoddartReef views also deallocated. These controlled results do not guarantee that an external host cannot retain a view for additional reasons.

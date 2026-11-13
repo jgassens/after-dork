@@ -2,7 +2,7 @@ SAVERS = FlyingFlasks GlasswarePipes LatticeMaze MystifyPolymers StoddartReef Or
 MIN = 11.0
 BUILD = build
 FRAMEWORKS = -framework ScreenSaver -framework AppKit
-SHARED = Shared/Settings.swift
+SHARED = Shared/Settings.swift Shared/LifecycleScreenSaverView.swift
 
 all: $(foreach s,$(SAVERS),$(BUILD)/$(s).saver)
 

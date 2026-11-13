@@ -35,7 +35,7 @@ private struct Weed {
 }
 
 @objc(StoddartReefView)
-public final class StoddartReefView: ScreenSaverView {
+public final class StoddartReefView: LifecycleScreenSaverView {
 
     private var swimmers: [Swimmer] = []
     private var bubbles: [Bubble] = []

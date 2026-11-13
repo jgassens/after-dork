@@ -3,6 +3,15 @@
     <channel>
         <title>AfterDork</title>
         <item>
+            <title>1.2.2</title>
+            <pubDate>Fri, 13 Nov 2026 10:39:42 -0600</pubDate>
+            <sparkle:version>122</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/jgassens/after-dork/releases/download/v1.2.2/AfterDork-1.2.2.zip" length="3645427" type="application/octet-stream" sparkle:edSignature="34jKmy6nCxjeY4etdLAdLt2gWP2b+8cmoLlc39IqPayhLjZWYIHufayElZTPi0RSl2JAIWVx4sENbBwjmzdvAg=="/>
+        </item>
+        <item>
             <title>1.2.1</title>
             <pubDate>Wed, 02 Sep 2026 13:27:49 -0500</pubDate>
             <sparkle:version>121</sparkle:version>

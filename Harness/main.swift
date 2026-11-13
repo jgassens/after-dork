@@ -29,13 +29,11 @@ if args.contains("--window") {
     win.center()
     win.makeKeyAndOrderFront(nil)
     app.activate(ignoringOtherApps: true)
+    // ScreenSaverView owns the live animation timer.
     view.startAnimation()
-    let timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
-        view.animateOneFrame()
-    }
-    RunLoop.main.add(timer, forMode: .common)
     NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification,
                                            object: win, queue: nil) { _ in
+        view.stopAnimation()
         app.terminate(nil)
     }
     app.run()
@@ -44,7 +42,7 @@ if args.contains("--window") {
     let outPrefix = positional.count > 3 ? positional[positional.startIndex + 3] : "frame"
 
     let view = harnessMake(NSRect(x: 0, y: 0, width: W, height: H))
-    view.startAnimation()
+    // No event loop runs in snapshot mode; the loop below advances exact frames.
 
     func snapshot(_ path: String) {
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil,

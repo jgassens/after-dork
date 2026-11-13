@@ -866,11 +866,8 @@ win.center()
 win.makeKeyAndOrderFront(nil)
 app.activate(ignoringOtherApps: true)
 
-let timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
-    previewView?.animateOneFrame()
-    for v in demoViews { v.animateOneFrame() }
-}
-RunLoop.main.add(timer, forMode: .common)
+// startAnimation() gives each live view its own timer at animationTimeInterval.
+// A second timer here would advance both previews and demos twice per frame.
 
 NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification,
                                        object: win, queue: nil) { _ in

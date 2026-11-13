@@ -60,10 +60,18 @@ Chemistry screen savers like it's 1996. Download, unzip, and open After Dork.app
 fi
 
 echo "== Appcast =="
+# Only scan this release archive: scanning dist rewrites older download URLs.
+APPCAST_STAGE=$(mktemp -d /tmp/afterdork-appcast.XXXXXX)
+trap 'rm -rf "$APPCAST_STAGE"' EXIT
+cp "$ZIP" "$APPCAST_STAGE/"
+if [[ -f appcast.xml ]]; then
+  cp appcast.xml "$APPCAST_STAGE/appcast.xml"
+fi
 "$SPARKLE_BIN/generate_appcast" \
   --download-url-prefix "https://github.com/$REPO/releases/download/v$VERSION/" \
   --versions "$BUILD_VERSION" --maximum-versions 0 --maximum-deltas 0 \
-  -o appcast.xml dist
+  -o "$APPCAST_STAGE/appcast.xml" "$APPCAST_STAGE"
+mv "$APPCAST_STAGE/appcast.xml" appcast.xml
 git add appcast.xml
 git commit -m "Appcast for $VERSION" || true
 git push origin main

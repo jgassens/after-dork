@@ -10,6 +10,7 @@ SPARKLE_BIN="${SPARKLE_BIN:-$HOME/programming/chemdraw/apps/desktop/src-tauri/sp
 REPO="jgassens/after-dork"
 APP="build/AfterDork.app"
 VERSION=$(plutil -extract CFBundleShortVersionString raw ControlPanel/Info.plist)
+BUILD_VERSION=$(plutil -extract CFBundleVersion raw ControlPanel/Info.plist)
 ZIP="dist/AfterDork-$VERSION.zip"
 
 echo "== Releasing After Dork $VERSION =="
@@ -45,6 +46,7 @@ if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
   gh release upload "v$VERSION" "$ZIP" --clobber --repo "$REPO"
 else
   gh release create "v$VERSION" "$ZIP" --repo "$REPO" \
+    --target "$(git rev-parse HEAD)" \
     --title "After Dork $VERSION for Mac" \
     --notes "## 🍎 After Dork $VERSION for **Mac**
 
@@ -52,12 +54,15 @@ else
 
 > 🪟 **On Windows?** This download won't run on your PC. Get **[After Dork for Windows](https://github.com/$REPO/releases?q=windows&expanded=true)** instead.
 
+Fixes duplicate animation timers in live previews and demos, restoring the intended animation rate and stopping callbacks when a preview closes.
+
 Chemistry screen savers like it's 1996. Download, unzip, and open After Dork.app."
 fi
 
 echo "== Appcast =="
 "$SPARKLE_BIN/generate_appcast" \
   --download-url-prefix "https://github.com/$REPO/releases/download/v$VERSION/" \
+  --versions "$BUILD_VERSION" --maximum-versions 0 --maximum-deltas 0 \
   -o appcast.xml dist
 git add appcast.xml
 git commit -m "Appcast for $VERSION" || true
